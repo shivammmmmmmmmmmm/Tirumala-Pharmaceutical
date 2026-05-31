@@ -14,7 +14,13 @@ const app = express()
 const PORT = Number(process.env.PORT) || 3001
 
 app.use(express.json({ limit: '10mb' }))
-app.use(cors({ origin: process.env.FRONTEND_URL || 'http://localhost:3000', credentials: true }))
+app.use(cors({
+  origin: [
+    'http://localhost:3000',
+    'https://medical-distribution-system-frontend-gfdp5hwwz.vercel.app',
+  ],
+  credentials: true,
+}))
 
 app.get('/health', (_req, res) =>
   res.json({ status: 'ok', database: getActiveDriver(), timestamp: new Date().toISOString() })
