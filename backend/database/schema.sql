@@ -1,0 +1,132 @@
+-- Medical Distribution System — MySQL (XAMPP / phpMyAdmin)
+-- Run once, or use: npm run db:setup
+
+CREATE DATABASE IF NOT EXISTS medical_db;
+USE medical_db;
+
+CREATE TABLE IF NOT EXISTS users (
+  id VARCHAR(36) PRIMARY KEY,
+  email VARCHAR(255) UNIQUE NOT NULL,
+  password_hash VARCHAR(255) NOT NULL,
+  name VARCHAR(255) NOT NULL,
+  role ENUM('ADMIN','SALES_PERSON','USER') NOT NULL,
+  customer_type ENUM('DISTRIBUTOR','HOSPITAL','CLINIC','PHARMACY') NULL,
+  phone VARCHAR(50) NULL,
+  organization_name VARCHAR(255) NULL,
+  address TEXT NULL,
+  territory VARCHAR(100) NULL,
+  assigned_sp_id VARCHAR(36) NULL,
+  commission_pct DECIMAL(5,2) DEFAULT 0,
+  credit_limit DECIMAL(12,2) DEFAULT 0,
+  credit_used DECIMAL(12,2) DEFAULT 0,
+  is_blocked TINYINT NOT NULL DEFAULT 0,
+  is_active TINYINT NOT NULL DEFAULT 1,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  last_login DATETIME NULL,
+  FOREIGN KEY (assigned_sp_id) REFERENCES users(id) ON DELETE SET NULL
+);
+
+CREATE TABLE IF NOT EXISTS products (
+  id VARCHAR(36) PRIMARY KEY,
+  name VARCHAR(255) NOT NULL,
+  company_name VARCHAR(255) NULL,
+  category VARCHAR(100) NULL,
+  description TEXT NULL,
+  ingredients TEXT NULL,
+  strength VARCHAR(100) NULL,
+  dosage_form VARCHAR(100) NULL,
+  mrp DECIMAL(12,2) DEFAULT 0,
+  selling_price DECIMAL(12,2) DEFAULT 0,
+  discount_pct DECIMAL(5,2) DEFAULT 0,
+  sku VARCHAR(100) UNIQUE NOT NULL,
+  manufacturer VARCHAR(255) NULL,
+  quantity INT NOT NULL DEFAULT 0,
+  reorder_level INT NOT NULL DEFAULT 0,
+  image_url VARCHAR(500) NULL,
+  is_active TINYINT NOT NULL DEFAULT 1,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS orders (
+  id VARCHAR(36) PRIMARY KEY,
+  order_number VARCHAR(50) UNIQUE NOT NULL,
+  user_id VARCHAR(36) NOT NULL,
+  sp_id VARCHAR(36) NULL,
+  status ENUM('PENDING','APPROVED','DISPATCHED','DELIVERED','COMPLETED','CANCELLED') NOT NULL DEFAULT 'PENDING',
+  payment_method ENUM('CREDIT','UPI','BANK_TRANSFER','CASH') DEFAULT 'CREDIT',
+  payment_status ENUM('PENDING','PARTIAL','PAID') DEFAULT 'PENDING',
+  subtotal DECIMAL(12,2) DEFAULT 0,
+  discount_amount DECIMAL(12,2) DEFAULT 0,
+  total_amount DECIMAL(12,2) DEFAULT 0,
+  paid_amount DECIMAL(12,2) DEFAULT 0,
+  notes TEXT NULL,
+  shipping_address TEXT NULL,
+  delivered_at DATETIME NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  FOREIGN KEY (user_id) REFERENCES users(id),
+  FOREIGN KEY (sp_id) REFERENCES users(id) ON DELETE SET NULL
+);
+
+CREATE TABLE IF NOT EXISTS order_items (
+  id VARCHAR(36) PRIMARY KEY,
+  order_id VARCHAR(36) NOT NULL,
+  product_id VARCHAR(36) NOT NULL,
+  product_name VARCHAR(255) NOT NULL,
+  quantity INT NOT NULL,
+  unit_price DECIMAL(12,2) NOT NULL,
+  discount_pct DECIMAL(5,2) DEFAULT 0,
+  total_price DECIMAL(12,2) NOT NULL,
+  FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE,
+  FOREIGN KEY (product_id) REFERENCES products(id)
+);
+
+CREATE TABLE IF NOT EXISTS ledger (
+  id VARCHAR(36) PRIMARY KEY,
+  user_id VARCHAR(36) NOT NULL,
+  type ENUM('DEBIT','CREDIT') NOT NULL,
+  amount DECIMAL(12,2) NOT NULL,
+  balance_after DECIMAL(12,2) NOT NULL,
+  description VARCHAR(500) NOT NULL,
+  reference_id VARCHAR(36) NULL,
+  reference_type VARCHAR(50) NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (user_id) REFERENCES users(id)
+);
+
+CREATE TABLE IF NOT EXISTS commissions (
+  id VARCHAR(36) PRIMARY KEY,
+  sp_id VARCHAR(36) NOT NULL,
+  order_id VARCHAR(36) NOT NULL,
+  order_amount DECIMAL(12,2) NOT NULL,
+  commission_pct DECIMAL(5,2) NOT NULL,
+  commission_amount DECIMAL(12,2) NOT NULL,
+  status ENUM('PENDING','APPROVED','PAID') NOT NULL DEFAULT 'PENDING',
+  paid_at DATETIME NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  FOREIGN KEY (sp_id) REFERENCES users(id),
+  FOREIGN KEY (order_id) REFERENCES orders(id)
+);
+
+CREATE TABLE IF NOT EXISTS product_pricing (
+  id VARCHAR(36) PRIMARY KEY,
+  product_id VARCHAR(36) NOT NULL,
+  role ENUM('ADMIN','SALES_PERSON','USER') NOT NULL,
+  price DECIMAL(12,2) NOT NULL,
+  min_quantity INT NOT NULL DEFAULT 1,
+  max_quantity INT NULL,
+  effective_from DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  effective_to DATETIME NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE
+);
+
+CREATE INDEX idx_orders_user ON orders(user_id);
+CREATE INDEX idx_orders_sp ON orders(sp_id);
+CREATE INDEX idx_orders_status ON orders(status);
+CREATE INDEX idx_ledger_user ON ledger(user_id);
+CREATE INDEX idx_commissions_sp ON commissions(sp_id);

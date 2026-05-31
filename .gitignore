@@ -1,0 +1,50 @@
+# v0 sandbox internal files
+__v0_runtime_loader.js
+__v0_devtools.tsx
+__v0_jsx-dev-runtime.ts
+.snowflake/
+.v0-trash/
+.vercel/
+
+# Environment variables
+.env*.local
+
+# Common ignores
+node_modules/
+pnpm-lock.yaml
+npm-debug.log
+yarn-error.log
+.next/
+out/
+build/
+dist/
+
+# Backend
+backend/dist/
+backend/.env
+backend/.env.local
+
+# Frontend
+frontend/.env.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+Thumbs.db
+
+# Logs
+logs/
+*.log
+
+# Testing
+coverage/
+.nyc_output/
+
+# Misc
+*.pem
+.vercel
