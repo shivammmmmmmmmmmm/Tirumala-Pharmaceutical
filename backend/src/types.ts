@@ -48,7 +48,7 @@ export interface PaginatedResponse<T> {
 export interface LoginRequest { email: string; password: string }
 export interface LoginResponse { token: string; user: User }
 export type CustomerType = 'DISTRIBUTOR' | 'HOSPITAL' | 'CLINIC' | 'PHARMACY'
-export type AccountRole = 'ADMINISTRATOR' | 'DISTRIBUTOR' | 'HOSPITAL' | 'CLINIC' | 'PHARMACY'
+export type AccountRole = 'ADMINISTRATOR' | 'SALES_PERSON' | 'DISTRIBUTOR' | 'HOSPITAL' | 'CLINIC' | 'PHARMACY'
 
 export interface RegisterRequest {
   email: string; password: string; name: string

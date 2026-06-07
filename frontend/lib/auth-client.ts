@@ -15,13 +15,16 @@ class AuthClient {
     this.setToken(result.token)
     return result
   }
-  async register(data: RegisterRequest): Promise<LoginResponse> {
-    const result = await authApi.register(data)
-    this.setToken(result.token)
+  async register(data: RegisterRequest): Promise<LoginResponse & { pendingApproval?: boolean; message?: string }> {
+    const result = await authApi.register(data) as LoginResponse & { pendingApproval?: boolean; message?: string }
+    if (result.token) this.setToken(result.token)
     return result
   }
   async getCurrentUser(): Promise<User> { return authApi.me() }
-  logout() { this.clearToken() }
+  logout() {
+    this.clearToken()
+    import('./use-auth').then(m => m.invalidateAuthCache())
+  }
 }
 
 export const authClient = new AuthClient()

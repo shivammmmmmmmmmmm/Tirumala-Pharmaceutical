@@ -22,6 +22,8 @@ export async function initDatabase(): Promise<void> {
     active = await import('./sqlite.js')
     driverLabel = 'sqlite'
     await active.initDatabase()
+    const { ensureExtendedSchema } = await import('./extended-schema.js')
+    await ensureExtendedSchema()
     return
   }
 
@@ -47,6 +49,9 @@ export async function initDatabase(): Promise<void> {
     driverLabel = 'sqlite'
     await active.initDatabase()
   }
+
+  const { ensureExtendedSchema } = await import('./extended-schema.js')
+  await ensureExtendedSchema()
 }
 
 export async function query<T = RowDataPacket>(sql: string, params: unknown[] = []): Promise<T[]> {

@@ -5,9 +5,9 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { useAuth } from '@/lib/use-auth'
 import { productsApi } from '@/lib/api'
-import Navbar from '@/components/Navbar'
 import type { Product } from '@/lib/types'
 import { useDebounce } from '@/lib/use-debounce'
+import { getImageUrl } from '@/lib/image-utils'
 
 
 const ADMIN_LINKS = [
@@ -47,7 +47,7 @@ export default function AdminProductsPage() {
     abortRef.current = ac
 
     try {
-      const res = await productsApi.list({ search: debouncedSearch, category, page, pageSize: 20 }, ac.signal)
+      const res = await productsApi.list({ search: debouncedSearch, category, page, pageSize: 20 })
       setProducts(res.data)
       setTotal(res.total)
     } catch (e: any) {
@@ -85,9 +85,7 @@ export default function AdminProductsPage() {
   if (authLoading || !user || user.role !== 'ADMIN') return null
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <Navbar user={user} links={ADMIN_LINKS} />
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div className="space-y-6">
         <div className="flex items-center justify-between mb-6">
           <div>
             <h1 className="text-2xl font-bold text-gray-900">Products</h1>
@@ -119,7 +117,7 @@ export default function AdminProductsPage() {
             <table className="w-full text-sm">
               <thead className="bg-gray-50 border-b border-gray-100">
                 <tr>
-                  {['Product', 'Company', 'Category', 'Strength', 'MRP', 'Selling Price', 'Stock', 'Status', 'Actions'].map(h => (
+                  {['Product', 'Company', 'Category', 'Strength', 'MRP', 'Offer Price', 'Stock', 'Status', 'Actions'].map(h => (
                     <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">{h}</th>
                   ))}
                 </tr>
@@ -130,14 +128,34 @@ export default function AdminProductsPage() {
                 ) : products.map(p => (
                   <tr key={p.id} className="hover:bg-gray-50 transition">
                     <td className="px-4 py-3">
-                      <p className="font-medium text-gray-900">{p.name}</p>
-                      <p className="text-xs text-gray-400">{p.sku}</p>
+                      <div className="flex items-center gap-3">
+                        {p.imageUrl ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={getImageUrl(p.imageUrl)} alt={p.name} className="w-10 h-10 rounded object-cover border border-gray-100" />
+                        ) : (
+                          <div className="w-10 h-10 rounded bg-gray-100" />
+                        )}
+                        <div>
+                          <p className="font-medium text-gray-900">{p.name}</p>
+                          <p className="text-xs text-gray-400">{p.sku}</p>
+                        </div>
+                      </div>
                     </td>
                     <td className="px-4 py-3 text-gray-600">{p.companyName || p.manufacturer || '—'}</td>
                     <td className="px-4 py-3"><span className="px-2 py-0.5 bg-blue-50 text-blue-700 rounded text-xs">{p.category || '—'}</span></td>
                     <td className="px-4 py-3 text-gray-600">{p.strength || '—'}</td>
                     <td className="px-4 py-3 text-gray-600">₹{p.mrp}</td>
-                    <td className="px-4 py-3 font-medium text-green-700">₹{p.sellingPrice}</td>
+                    <td className="px-4 py-3">
+                      {Number(p.discountPct) > 0 ? (
+                        <div className="flex flex-col">
+                          <span className="text-xs text-gray-400 line-through">₹{Number(p.mrp).toLocaleString('en-IN')}</span>
+                          <span className="font-semibold text-green-700">₹{Number(p.sellingPrice).toLocaleString('en-IN')}</span>
+                          <span className="text-[11px] text-emerald-600">{Number(p.discountPct)}% off</span>
+                        </div>
+                      ) : (
+                        <span className="font-medium text-green-700">₹{p.sellingPrice}</span>
+                      )}
+                    </td>
                     <td className="px-4 py-3">
                       <span className={`font-medium ${p.quantity <= p.reorderLevel ? 'text-red-600' : 'text-gray-700'}`}>{p.quantity}</span>
                     </td>
@@ -175,7 +193,6 @@ export default function AdminProductsPage() {
             )}
           </div>
         )}
-      </div>
     </div>
   )
 }

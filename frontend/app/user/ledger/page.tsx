@@ -4,16 +4,8 @@ import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/lib/use-auth'
 import { usersApi } from '@/lib/api'
-import Navbar from '@/components/Navbar'
 import { usePolling } from '@/hooks/use-polling'
 import type { LedgerEntry } from '@/lib/types'
-
-const USER_LINKS = [
-  { href: '/user/dashboard', label: 'Dashboard' },
-  { href: '/user/products', label: 'Browse Products' },
-  { href: '/user/orders', label: 'My Orders' },
-  { href: '/user/ledger', label: 'Ledger' },
-]
 
 export default function UserLedgerPage() {
   const { user, loading: authLoading } = useAuth()
@@ -25,71 +17,107 @@ export default function UserLedgerPage() {
     if (!authLoading && (!user || user.role !== 'USER')) router.replace('/login')
   }, [user, authLoading, router])
 
-  const loadLedger = useCallback(async () => {
+  const load = useCallback(async () => {
     if (!user) return
     try {
       const data = await usersApi.ledger(user.id)
       setEntries(data)
-    } catch (e) {
-      console.error(e)
-    } finally {
-      setLoading(false)
-    }
+    } catch (e) { console.error(e) }
+    finally { setLoading(false) }
   }, [user])
 
-  useEffect(() => {
-    if (user?.role === 'USER') loadLedger()
-  }, [user, loadLedger])
-
-  usePolling(loadLedger, 20000, user?.role === 'USER')
+  useEffect(() => { if (user?.role === 'USER') load() }, [user, load])
+  usePolling(load, 20000, user?.role === 'USER')
 
   if (authLoading || !user || user.role !== 'USER') return null
 
-  return (
-    <div className="min-h-screen bg-gray-50">
-      <Navbar user={user} links={USER_LINKS} />
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <h1 className="text-2xl font-bold text-gray-900 mb-2">Account Ledger</h1>
-        <p className="text-sm text-gray-500 mb-6">Credit debits and payments on your account</p>
+  const balance = entries.length > 0 ? entries[0].balanceAfter : 0
 
-        {loading ? (
-          <div className="flex justify-center py-20">
-            <div className="h-8 w-8 animate-spin rounded-full border-4 border-gray-200 border-t-blue-600" />
-          </div>
-        ) : entries.length === 0 ? (
-          <p className="text-center text-gray-500 py-12">No ledger entries yet.</p>
-        ) : (
-          <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+  return (
+    <div className="space-y-5 pb-2">
+      <div>
+        <h1 className="text-2xl font-bold text-slate-900">Account Ledger</h1>
+        <p className="text-xs text-slate-400 mt-0.5">Credit debits and payments · Auto-refreshes every 20s</p>
+      </div>
+
+      {/* Balance card */}
+      {!loading && entries.length > 0 && (
+        <div className="relative overflow-hidden rounded-2xl p-5 text-white"
+          style={{ background: 'linear-gradient(135deg, #0f172a 0%, #1e3a5f 100%)' }}>
+          <div className="pointer-events-none absolute -top-8 -right-8 h-32 w-32 rounded-full bg-white/5" />
+          <p className="text-slate-400 text-xs font-semibold uppercase tracking-widest">Current Balance</p>
+          <p className={`text-3xl font-bold mt-1 ${balance >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+            ₹{Math.abs(balance).toLocaleString('en-IN', { maximumFractionDigits: 0 })}
+            <span className="text-base font-medium ml-1 opacity-70">{balance >= 0 ? 'CR' : 'DR'}</span>
+          </p>
+          <p className="text-slate-500 text-xs mt-1">{entries.length} transactions total</p>
+        </div>
+      )}
+
+      {loading ? (
+        <div className="space-y-3">
+          {[...Array(5)].map((_, i) => <div key={i} className="skeleton h-16 rounded-2xl" />)}
+        </div>
+      ) : entries.length === 0 ? (
+        <div className="flex flex-col items-center py-20 text-center">
+          <span className="text-5xl mb-4">📒</span>
+          <p className="font-semibold text-slate-600">No ledger entries yet</p>
+        </div>
+      ) : (
+        <>
+          {/* Mobile card list */}
+          <ul className="space-y-2 lg:hidden">
+            {entries.map(e => (
+              <li key={e.id} className="card-hover bg-white rounded-2xl border border-slate-100 shadow-sm p-4">
+                <div className="flex items-start justify-between">
+                  <div className="flex-1 min-w-0 pr-2">
+                    <p className="text-sm font-semibold text-slate-800 leading-snug">{e.description}</p>
+                    <p className="text-xs text-slate-400 mt-0.5">
+                      {new Date(e.createdAt).toLocaleString('en-IN', { day:'numeric', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit' })}
+                    </p>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <p className={`font-bold text-sm ${e.type === 'DEBIT' ? 'text-red-600' : 'text-emerald-600'}`}>
+                      {e.type === 'DEBIT' ? '−' : '+'}₹{Number(e.amount).toLocaleString('en-IN')}
+                    </p>
+                    <p className="text-xs text-slate-400">Bal ₹{Number(e.balanceAfter).toLocaleString('en-IN')}</p>
+                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full mt-1 inline-block ${e.type === 'DEBIT' ? 'bg-red-100 text-red-700' : 'bg-emerald-100 text-emerald-700'}`}>
+                      {e.type}
+                    </span>
+                  </div>
+                </div>
+              </li>
+            ))}
+          </ul>
+
+          {/* Desktop table */}
+          <div className="hidden lg:block bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
             <table className="w-full text-sm">
-              <thead className="bg-gray-50 border-b border-gray-100">
-                <tr>
-                  <th className="text-left px-4 py-3 font-medium text-gray-600">Date</th>
-                  <th className="text-left px-4 py-3 font-medium text-gray-600">Description</th>
-                  <th className="text-left px-4 py-3 font-medium text-gray-600">Type</th>
-                  <th className="text-right px-4 py-3 font-medium text-gray-600">Amount</th>
-                  <th className="text-right px-4 py-3 font-medium text-gray-600">Balance</th>
+              <thead>
+                <tr className="bg-slate-50/80 border-b border-slate-100">
+                  {['Date', 'Description', 'Type', 'Amount', 'Balance'].map((h, i) => (
+                    <th key={h} className={`px-5 py-3.5 text-xs font-bold uppercase tracking-wide text-slate-500 ${i >= 3 ? 'text-right' : 'text-left'}`}>{h}</th>
+                  ))}
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-50">
+              <tbody className="divide-y divide-slate-50">
                 {entries.map(e => (
-                  <tr key={e.id}>
-                    <td className="px-4 py-3 text-gray-500">
-                      {new Date(e.createdAt).toLocaleString('en-IN')}
+                  <tr key={e.id} className="hover:bg-slate-50/60 transition-colors">
+                    <td className="px-5 py-3.5 text-slate-500 text-xs whitespace-nowrap">
+                      {new Date(e.createdAt).toLocaleString('en-IN', { day:'numeric', month:'short', year:'numeric' })}
                     </td>
-                    <td className="px-4 py-3 text-gray-900">{e.description}</td>
-                    <td className="px-4 py-3">
-                      <span
-                        className={`text-xs px-2 py-0.5 rounded-full font-medium ${
-                          e.type === 'DEBIT' ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'
-                        }`}
-                      >
+                    <td className="px-5 py-3.5 text-slate-800 font-medium">{e.description}</td>
+                    <td className="px-5 py-3.5">
+                      <span className={`text-[11px] font-bold px-2.5 py-1 rounded-full ${e.type === 'DEBIT' ? 'bg-red-100 text-red-700' : 'bg-emerald-100 text-emerald-700'}`}>
                         {e.type}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-right font-medium">
-                      {e.type === 'DEBIT' ? '-' : '+'}₹{Number(e.amount).toLocaleString('en-IN')}
+                    <td className="px-5 py-3.5 text-right font-bold">
+                      <span className={e.type === 'DEBIT' ? 'text-red-600' : 'text-emerald-600'}>
+                        {e.type === 'DEBIT' ? '−' : '+'}₹{Number(e.amount).toLocaleString('en-IN')}
+                      </span>
                     </td>
-                    <td className="px-4 py-3 text-right text-gray-600">
+                    <td className="px-5 py-3.5 text-right text-slate-600 font-medium">
                       ₹{Number(e.balanceAfter).toLocaleString('en-IN')}
                     </td>
                   </tr>
@@ -97,8 +125,8 @@ export default function UserLedgerPage() {
               </tbody>
             </table>
           </div>
-        )}
-      </div>
+        </>
+      )}
     </div>
   )
 }

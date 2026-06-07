@@ -5,22 +5,15 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { useAuth } from '@/lib/use-auth'
 import { usersApi } from '@/lib/api'
-import Navbar from '@/components/Navbar'
 import type { User } from '@/lib/types'
-
-const SP_LINKS = [
-  { href: '/sp/dashboard', label: 'Dashboard' },
-  { href: '/sp/orders', label: 'Orders' },
-  { href: '/sp/customers', label: 'My Customers' },
-  { href: '/sp/commissions', label: 'Commissions' },
-  { href: '/sp/place-order', label: 'Place Order' },
-]
 
 export default function SPCustomersPage() {
   const { user, loading: authLoading } = useAuth()
   const router = useRouter()
   const [customers, setCustomers] = useState<User[]>([])
-  const [loading, setLoading] = useState(true)
+  const [pending, setPending] = useState<User[]>([])
+  const [search, setSearch]       = useState('')
+  const [loading, setLoading]     = useState(true)
 
   useEffect(() => {
     if (!authLoading && (!user || user.role !== 'SALES_PERSON')) router.replace('/login')
@@ -28,47 +21,127 @@ export default function SPCustomersPage() {
 
   useEffect(() => {
     if (user?.role === 'SALES_PERSON') {
-      usersApi.list({ role: 'USER' }).then(res => setCustomers(res.data)).catch(console.error).finally(() => setLoading(false))
+      Promise.all([
+        usersApi.list({ role: 'USER', approvalStatus: 'APPROVED', pageSize: 100 }),
+        usersApi.list({ role: 'USER', approvalStatus: 'PENDING', pageSize: 100 }),
+      ])
+        .then(([approved, pend]) => {
+          setCustomers(approved.data)
+          setPending(pend.data)
+        })
+        .catch(console.error)
+        .finally(() => setLoading(false))
     }
   }, [user])
+
+  const filtered = customers.filter(c =>
+    c.name.toLowerCase().includes(search.toLowerCase()) ||
+    c.email.toLowerCase().includes(search.toLowerCase()) ||
+    (c.organizationName || '').toLowerCase().includes(search.toLowerCase())
+  )
+
+  const TYPE_COLOR: Record<string, string> = {
+    PHARMACY: 'bg-blue-100 text-blue-700', HOSPITAL: 'bg-purple-100 text-purple-700',
+    CLINIC: 'bg-teal-100 text-teal-700', DISTRIBUTOR: 'bg-orange-100 text-orange-700',
+  }
 
   if (authLoading || !user || user.role !== 'SALES_PERSON') return null
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <Navbar user={user} links={SP_LINKS} />
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="flex items-center justify-between mb-6">
-          <h1 className="text-2xl font-bold text-gray-900">My Customers ({customers.length})</h1>
-          <Link href="/sp/customers/new" className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg transition">+ Register Customer</Link>
+    <div className="space-y-5 pb-2">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-900">My Customers</h1>
+          <p className="text-xs text-slate-400 mt-0.5">{customers.length} total customers</p>
         </div>
-        {loading ? (
-          <div className="flex justify-center py-20"><div className="h-8 w-8 animate-spin rounded-full border-4 border-gray-200 border-t-blue-600" /></div>
-        ) : (
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {customers.length === 0 ? (
-              <div className="col-span-3 text-center py-12 text-gray-400">No customers assigned yet</div>
-            ) : customers.map(c => (
-              <div key={c.id} className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
-                <div className="flex items-start justify-between">
-                  <div>
-                    <p className="font-semibold text-gray-900">{c.name}</p>
-                    <p className="text-sm text-gray-500">{c.email}</p>
-                    {c.organizationName && <p className="text-xs text-gray-400 mt-1">{c.organizationName}</p>}
+        <Link href="/sp/customers/new"
+          className="btn-press flex items-center gap-1.5 px-4 py-2.5 bg-gradient-to-r from-emerald-500 to-teal-600 text-white text-sm font-semibold rounded-xl shadow-lg shadow-emerald-500/25 hover:from-emerald-600 hover:to-teal-700 transition-all">
+          <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          Add
+        </Link>
+      </div>
+
+      {pending.length > 0 && (
+        <div className="bg-amber-50 border border-amber-100 rounded-2xl p-4">
+          <p className="text-sm font-semibold text-amber-800 mb-2">{pending.length} awaiting admin approval</p>
+          <ul className="space-y-1">
+            {pending.map(p => (
+              <li key={p.id} className="text-xs text-amber-700">{p.organizationName || p.name} — submitted, pending verification</li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {/* Search */}
+      <div className="relative">
+        <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">
+          <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        </div>
+        <input value={search} onChange={e => setSearch(e.target.value)}
+          placeholder="Search by name, email, org…"
+          className="w-full pl-11 pr-4 py-3.5 bg-white border border-slate-200 rounded-2xl text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-400 transition-all" />
+      </div>
+
+      {loading ? (
+        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          {[...Array(6)].map((_, i) => <div key={i} className="skeleton h-36 rounded-2xl" />)}
+        </div>
+      ) : filtered.length === 0 ? (
+        <div className="flex flex-col items-center py-20 text-center">
+          <span className="text-5xl mb-4">{search ? '🔍' : '👥'}</span>
+          <p className="font-semibold text-slate-600">{search ? 'No results found' : 'No customers yet'}</p>
+          {!search && (
+            <Link href="/sp/customers/new" className="mt-4 btn-press px-5 py-2.5 bg-emerald-600 text-white rounded-xl text-sm font-semibold shadow-md shadow-emerald-500/20 hover:bg-emerald-700 transition-all">
+              Register First Customer →
+            </Link>
+          )}
+        </div>
+      ) : (
+        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          {filtered.map(c => {
+            const creditPct = c.creditLimit ? Math.min(100, ((c.creditUsed || 0) / c.creditLimit) * 100) : 0
+            return (
+              <div key={c.id} className="card-hover bg-white rounded-2xl border border-slate-100 shadow-sm p-4">
+                <div className="flex items-start justify-between mb-3">
+                  <div className="flex-1 min-w-0 pr-2">
+                    <p className="font-bold text-slate-800 truncate">{c.name}</p>
+                    <p className="text-xs text-slate-400 mt-0.5 truncate">{c.email}</p>
+                    {c.organizationName && (
+                      <p className="text-xs text-slate-500 mt-0.5 truncate">{c.organizationName}</p>
+                    )}
                   </div>
-                  <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${c.isActive ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
-                    {c.isActive ? 'Active' : 'Inactive'}
-                  </span>
+                  <div className="flex flex-col items-end gap-1 shrink-0">
+                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${c.isActive ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>
+                      {c.isActive ? 'Active' : 'Inactive'}
+                    </span>
+                    {c.customerType && (
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${TYPE_COLOR[c.customerType] ?? 'bg-slate-100 text-slate-600'}`}>
+                        {c.customerType}
+                      </span>
+                    )}
+                  </div>
                 </div>
-                <div className="mt-3 pt-3 border-t border-gray-50 grid grid-cols-2 gap-2 text-xs">
-                  <div><p className="text-gray-400">Credit Limit</p><p className="font-medium text-gray-700">₹{Number(c.creditLimit||0).toLocaleString('en-IN', { maximumFractionDigits: 0 })}</p></div>
-                  <div><p className="text-gray-400">Outstanding</p><p className="font-medium text-red-600">₹{Number(c.creditUsed||0).toLocaleString('en-IN', { maximumFractionDigits: 0 })}</p></div>
+                <div className="space-y-1.5">
+                  <div className="flex justify-between text-xs">
+                    <span className="text-slate-400">Credit Limit</span>
+                    <span className="font-semibold text-slate-700">₹{Number(c.creditLimit || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 })}</span>
+                  </div>
+                  <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                    <div className={`h-full rounded-full transition-all ${creditPct > 80 ? 'bg-red-500' : creditPct > 50 ? 'bg-amber-500' : 'bg-emerald-500'}`}
+                      style={{ width: `${creditPct}%` }} />
+                  </div>
+                  <div className="flex justify-between text-xs">
+                    <span className="text-slate-400">Outstanding</span>
+                    <span className={`font-bold ${(c.creditUsed || 0) > 0 ? 'text-red-600' : 'text-slate-500'}`}>
+                      ₹{Number(c.creditUsed || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 })}
+                    </span>
+                  </div>
                 </div>
               </div>
-            ))}
-          </div>
-        )}
-      </div>
+            )
+          })}
+        </div>
+      )}
     </div>
   )
 }

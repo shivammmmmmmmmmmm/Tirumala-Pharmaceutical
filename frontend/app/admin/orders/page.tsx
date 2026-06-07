@@ -4,29 +4,15 @@ import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/lib/use-auth'
 import { ordersApi } from '@/lib/api'
-import Navbar from '@/components/Navbar'
+import { usePolling } from '@/hooks/use-polling'
+import ScreenshotView from '@/components/ScreenshotView'
 import type { Order } from '@/lib/types'
-
-const ADMIN_LINKS = [
-  { href: '/admin/dashboard', label: 'Dashboard' },
-  { href: '/admin/products', label: 'Products' },
-  { href: '/admin/orders', label: 'Orders' },
-  { href: '/admin/users', label: 'Users' },
-  { href: '/admin/sales-persons', label: 'Sales Persons' },
-  { href: '/admin/commissions', label: 'Commissions' },
-]
 
 const STATUSES = ['', 'PENDING', 'APPROVED', 'DISPATCHED', 'DELIVERED', 'COMPLETED', 'CANCELLED']
 const STATUS_COLORS: Record<string, string> = {
   PENDING: 'bg-yellow-100 text-yellow-700', APPROVED: 'bg-blue-100 text-blue-700',
   DISPATCHED: 'bg-indigo-100 text-indigo-700', DELIVERED: 'bg-green-100 text-green-700',
   COMPLETED: 'bg-emerald-100 text-emerald-700', CANCELLED: 'bg-red-100 text-red-700',
-}
-const NEXT_STATUS: Record<string, string[]> = {
-  PENDING: ['APPROVED', 'CANCELLED'],
-  APPROVED: ['DISPATCHED', 'CANCELLED'],
-  DISPATCHED: ['DELIVERED'],
-  DELIVERED: ['COMPLETED'],
 }
 
 export default function AdminOrdersPage() {
@@ -54,11 +40,34 @@ export default function AdminOrdersPage() {
   }, [statusFilter, page])
 
   useEffect(() => { if (user?.role === 'ADMIN') fetchOrders() }, [user, fetchOrders])
+  usePolling(fetchOrders, 12000, user?.role === 'ADMIN')
 
   const updateStatus = async (id: string, status: string) => {
     setUpdating(true)
     try { await ordersApi.updateStatus(id, status); fetchOrders(); setSelected(null) }
     catch (e: any) { alert(e.message) } finally { setUpdating(false) }
+  }
+
+  // 🆕 Verify Payment (for PENDING orders)
+  const verifyPayment = async (id: string) => {
+    setUpdating(true)
+    try {
+      await ordersApi.verifyPayment(id)
+      alert('✅ Payment verified! Order is now APPROVED. Sales person has been notified to dispatch.')
+      fetchOrders()
+      setSelected(null)
+    } catch (e: any) { alert('Error: ' + e.message) } finally { setUpdating(false) }
+  }
+
+  // 🆕 Request Dispatch (for APPROVED orders)
+  const requestDispatch = async (id: string) => {
+    setUpdating(true)
+    try {
+      await ordersApi.requestDispatch(id)
+      alert('✅ Dispatch requested! Sales person has been notified to collect and send material.')
+      fetchOrders()
+      setSelected(null)
+    } catch (e: any) { alert('Error: ' + e.message) } finally { setUpdating(false) }
   }
 
   const recordPayment = async (id: string) => {
@@ -72,9 +81,7 @@ export default function AdminOrdersPage() {
   if (authLoading || !user || user.role !== 'ADMIN') return null
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <Navbar user={user} links={ADMIN_LINKS} />
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div className="space-y-6">
         <div className="flex items-center justify-between mb-6">
           <div>
             <h1 className="text-2xl font-bold text-gray-900">Orders</h1>
@@ -143,7 +150,6 @@ export default function AdminOrdersPage() {
             )}
           </div>
         )}
-      </div>
 
       {/* Order Detail Modal */}
       {selected && (
@@ -163,12 +169,50 @@ export default function AdminOrdersPage() {
                 <div><p className="text-gray-500">Payment Status</p><p className="font-medium">{selected.paymentStatus}</p></div>
               </div>
 
+              {/* Show payment proof if exists */}
+              {selected.paymentScreenshotUrl && (
+                <div className="bg-blue-50 rounded-lg p-3 border border-blue-100">
+                  <p className="text-xs font-semibold text-blue-700 mb-1">📎 Payment Proof</p>
+                  <ScreenshotView url={selected.paymentScreenshotUrl} label="View payment screenshot" />
+                </div>
+              )}
+
+              {/* 🆕 Verify Payment (PENDING orders) */}
+              {selected.status === 'PENDING' && (
+                <div className="bg-amber-50 rounded-lg p-4 border border-amber-200">
+                  <p className="font-semibold text-amber-900 text-sm mb-2">💳 Step 1: Verify Payment</p>
+                  <p className="text-xs text-amber-700 mb-3">
+                    Verify that payment has been received. Check payment proof if uploaded, or confirm COD/Cheque details.
+                    This will mark the order as APPROVED and notify the sales person to dispatch.
+                  </p>
+                  <button onClick={() => verifyPayment(selected.id)} disabled={updating}
+                    className="w-full px-4 py-2.5 bg-amber-600 hover:bg-amber-700 text-white font-semibold rounded-lg transition disabled:opacity-50 flex items-center justify-center gap-2">
+                    {updating ? '⏳' : '✅'} Verify Payment & Approve
+                  </button>
+                </div>
+              )}
+
+              {/* 🆕 Request Dispatch (APPROVED orders) */}
+              {selected.status === 'APPROVED' && (
+                <div className="bg-indigo-50 rounded-lg p-4 border border-indigo-200">
+                  <p className="font-semibold text-indigo-900 text-sm mb-2">🚚 Step 2: Request Dispatch</p>
+                  <p className="text-xs text-indigo-700 mb-3">
+                    Notify the sales person to collect the material and dispatch to the customer.
+                    They will be asked to submit courier/tracking details.
+                  </p>
+                  <button onClick={() => requestDispatch(selected.id)} disabled={updating}
+                    className="w-full px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-lg transition disabled:opacity-50 flex items-center justify-center gap-2">
+                    {updating ? '⏳' : '📦'} Notify SP to Dispatch
+                  </button>
+                </div>
+              )}
+
               {/* Status Actions */}
-              {NEXT_STATUS[selected.status] && (
+              {selected.status && (
                 <div>
                   <p className="text-sm font-medium text-gray-700 mb-2">Update Status</p>
                   <div className="flex gap-2 flex-wrap">
-                    {NEXT_STATUS[selected.status].map(s => (
+                    {['CANCELLED'].filter(s => s !== selected.status).map(s => (
                       <button key={s} onClick={() => updateStatus(selected.id, s)} disabled={updating}
                         className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition disabled:opacity-50 ${s === 'CANCELLED' ? 'bg-red-100 text-red-700 hover:bg-red-200' : 'bg-blue-100 text-blue-700 hover:bg-blue-200'}`}>
                         → {s}

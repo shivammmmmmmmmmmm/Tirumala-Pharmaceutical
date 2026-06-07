@@ -1,6 +1,6 @@
 export type UserRole = 'ADMIN' | 'SALES_PERSON' | 'USER'
 export type CustomerType = 'DISTRIBUTOR' | 'HOSPITAL' | 'CLINIC' | 'PHARMACY'
-export type AccountRole = 'ADMINISTRATOR' | 'DISTRIBUTOR' | 'HOSPITAL' | 'CLINIC' | 'PHARMACY'
+export type AccountRole = 'ADMINISTRATOR' | 'SALES_PERSON' | 'DISTRIBUTOR' | 'HOSPITAL' | 'CLINIC' | 'PHARMACY'
 export type OrderStatus = 'PENDING' | 'APPROVED' | 'DISPATCHED' | 'DELIVERED' | 'COMPLETED' | 'CANCELLED'
 export type PaymentMethod = 'CREDIT' | 'UPI' | 'BANK_TRANSFER' | 'CASH'
 export type PaymentStatus = 'PENDING' | 'PARTIAL' | 'PAID'
@@ -9,9 +9,20 @@ export interface User {
   id: string; email: string; name: string; role: UserRole
   customerType?: CustomerType | null
   phone?: string | null; organizationName?: string | null; address?: string | null
+  billingAddress?: string | null; shippingAddress?: string | null
   territory?: string | null; assignedSpId?: string | null
-  commissionPct?: number; creditLimit?: number; creditUsed?: number
+  assignedSpName?: string | null; assignedSpCode?: string | null
+  commissionPct?: number; spCommissionPct?: number | null
+  spCommissionType?: 'PERCENTAGE' | 'FIXED' | string | null
+  spCommissionValue?: number | null
+  creditLimit?: number; creditUsed?: number
   isBlocked?: boolean; isActive?: boolean
+  approvalStatus?: 'PENDING' | 'APPROVED' | 'REJECTED'
+  rejectionRemark?: string | null
+  referredBySpCode?: string | null; spReferralCode?: string | null
+  latitude?: number | null; longitude?: number | null
+  aadhaarUrl?: string | null; photoUrl?: string | null
+  areaId?: string | null
   createdAt?: string; updatedAt?: string; lastLogin?: string | null
 }
 
@@ -31,10 +42,20 @@ export interface OrderItem {
 export interface Order {
   id: string; orderNumber: string; userId: string; spId?: string | null
   status: OrderStatus; paymentMethod: PaymentMethod; paymentStatus: PaymentStatus
-  subtotal: number; discountAmount: number; totalAmount: number; paidAmount: number
-  notes?: string; shippingAddress?: string; deliveredAt?: string | null
+  subtotal: number; discountAmount: number; totalAmount: number; gstAmount?: number
+  trackingCode?: string | null; deliveryNotes?: string | null; paidAmount: number
+  notes?: string; shippingAddress?: string; paymentScreenshotUrl?: string | null
+  receiptStatus?: 'NONE' | 'AWAITING_CUSTOMER' | 'CONFIRMED' | 'DISPUTED'
+  receiptRemark?: string | null
+  receiptConfirmedAt?: string | null
+  deliveredAt?: string | null
   createdAt: string; updatedAt: string; items?: OrderItem[]
   userName?: string | null; userOrg?: string | null; spName?: string | null
+  // 🆕 New delivery system fields
+  deliveryScreenshotUrl?: string | null
+  customerDeliveryStatus?: 'NONE' | 'AWAITING_RESPONSE' | 'CONFIRMED' | 'DISPUTED'
+  deliveryMessageSentAt?: string | null
+  remarkFromCustomer?: string | null
 }
 
 export interface LedgerEntry {
@@ -43,8 +64,23 @@ export interface LedgerEntry {
   referenceType?: string; createdAt: string
 }
 
+export interface AppNotification {
+  id: string
+  userId: string
+  type: string
+  title: string
+  body: string
+  orderId?: string | null
+  isRead: boolean
+  requiresAction: boolean
+  actionType?: string | null
+  metadata?: Record<string, unknown> | null
+  createdAt: string
+}
+
 export interface Commission {
   id: string; spId: string; orderId: string; orderNumber?: string; spName?: string
+  customerId?: string | null; customerName?: string | null; customerOrg?: string | null
   orderAmount: number; commissionPct: number; commissionAmount: number
   status: 'PENDING' | 'APPROVED' | 'PAID'; paidAt?: string | null; createdAt: string
 }
@@ -72,6 +108,7 @@ export interface AdminDashboard {
   totalOrders: number; pendingOrders: number; totalRevenue: number
   pendingPayments: number; pendingCommissions: number
   recentOrders: Order[]; topProducts: { name: string; sold: number }[]
+  lowStockProducts?: { name: string; quantity: number; reorderLevel: number }[]
 }
 
 export interface SPDashboard {

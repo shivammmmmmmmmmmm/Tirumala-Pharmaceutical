@@ -41,27 +41,49 @@ router.get('/', authMiddleware, async (req: AuthRequest, res: Response) => {
     const pageSize = Math.min(100, parseInt(req.query.pageSize as string) || 20)
     const search = ((req.query.search as string) || '').trim()
     const category = ((req.query.category as string) || '').trim()
+    const ingredient = ((req.query.ingredient as string) || '').trim()
+    const company = ((req.query.company as string) || '').trim()
+    const strength = ((req.query.strength as string) || '').trim()
     const offset = (page - 1) * pageSize
 
     const conds: string[] = ['is_active = 1']
     const params: unknown[] = []
+    let rankExpr = 'name ASC'
 
     if (search.length >= 2) {
-      // Prefer FULLTEXT if available (much faster than multi-column LIKE).
-      // Fallback to LIKE remains for older DBs/schemas.
-      conds.push(`(
-        MATCH(name, description, manufacturer) AGAINST (? IN BOOLEAN MODE)
-        OR (name LIKE ? OR sku LIKE ? OR category LIKE ? OR description LIKE ? OR manufacturer LIKE ? OR COALESCE(company_name,'') LIKE ?)
-      )`)
       const like = `%${search}%`
-      // For BOOLEAN MODE, wrap terms with wildcards to mimic substring search.
-      const booleanSearch = search
-        .split(/\s+/)
-        .filter(Boolean)
-        .map(t => `${t}*`)
-        .join(' ')
-
-      params.push(booleanSearch, like, like, like, like, like, like)
+      conds.push(`(
+        name LIKE ?
+        OR sku LIKE ?
+        OR category LIKE ?
+        OR description LIKE ?
+        OR manufacturer LIKE ?
+        OR COALESCE(company_name,'') LIKE ?
+        OR COALESCE(ingredients,'') LIKE ?
+        OR COALESCE(strength,'') LIKE ?
+        OR COALESCE(dosage_form,'') LIKE ?
+      )`)
+      params.push(like, like, like, like, like, like, like, like, like)
+      rankExpr = `CASE
+        WHEN name LIKE ? THEN 0
+        WHEN COALESCE(ingredients,'') LIKE ? THEN 1
+        WHEN sku LIKE ? THEN 2
+        WHEN COALESCE(company_name,'') LIKE ? THEN 3
+        WHEN category LIKE ? THEN 4
+        ELSE 5 END, name ASC`
+    }
+    if (ingredient.length >= 2) {
+      conds.push(`COALESCE(ingredients,'') LIKE ?`)
+      params.push(`%${ingredient}%`)
+    }
+    if (company.length >= 1) {
+      conds.push(`(COALESCE(company_name,'') LIKE ? OR manufacturer LIKE ?)`)
+      const like = `%${company}%`
+      params.push(like, like)
+    }
+    if (strength.length >= 1) {
+      conds.push(`COALESCE(strength,'') LIKE ?`)
+      params.push(`%${strength}%`)
     }
     if (category) {
       conds.push('category = ?')
@@ -69,12 +91,23 @@ router.get('/', authMiddleware, async (req: AuthRequest, res: Response) => {
     }
 
     const where = `WHERE ${conds.join(' AND ')}`
-    // Run both queries concurrently to reduce endpoint latency.
+    // rankParams go into the ORDER BY CASE expression — must come after WHERE params
+    const rankParams =
+      search.length >= 2
+        ? [
+            `%${search}%`,
+            `%${search}%`,
+            `%${search}%`,
+            `%${search}%`,
+            `%${search}%`,
+          ]
+        : []
+
     const [totalRow, products] = await Promise.all([
       queryOne<Record<string, unknown>>(`SELECT COUNT(*) as c FROM products ${where}`, params),
       query<Record<string, unknown>>(
-        `SELECT * FROM products ${where} ORDER BY name ASC LIMIT ? OFFSET ?`,
-        [...params, pageSize, offset]
+        `SELECT * FROM products ${where} ORDER BY ${rankExpr} LIMIT ? OFFSET ?`,
+        [...params, ...rankParams, pageSize, offset]
       ),
     ])
 

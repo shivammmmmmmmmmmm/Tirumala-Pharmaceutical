@@ -8,13 +8,23 @@ let cachedUser: User | null = null
 let cachedLoaded = false
 let inFlight: Promise<User | null> | null = null
 
+export function invalidateAuthCache() {
+  cachedUser = null
+  cachedLoaded = false
+  inFlight = null
+}
+
 export function useAuth() {
   const [user, setUser] = useState<User | null>(cachedLoaded ? cachedUser : null)
   const [loading, setLoading] = useState(!cachedLoaded)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    if (cachedLoaded) return
+    if (cachedLoaded) {
+      setUser(cachedUser)
+      setLoading(false)
+      return
+    }
 
     const fetchUser = async () => {
       try {

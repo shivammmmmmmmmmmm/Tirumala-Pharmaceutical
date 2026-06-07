@@ -1,6 +1,8 @@
 import 'dotenv/config'
 import express from 'express'
 import cors from 'cors'
+import path from 'path'
+import { fileURLToPath } from 'url'
 import { initDatabase, getActiveDriver } from './db/index.js'
 import authRoutes from './routes/auth.js'
 import productRoutes from './routes/products.js'
@@ -9,6 +11,19 @@ import orderRoutes from './routes/orders.js'
 import userRoutes from './routes/users.js'
 import commissionRoutes from './routes/commissions.js'
 import dashboardRoutes from './routes/dashboard.js'
+import reportRoutes from './routes/reports.js'
+import invoiceRoutes from './routes/invoices.js'
+import auditRoutes from './routes/audit.js'
+import areaRoutes from './routes/areas.js'
+import uploadRoutes from './routes/uploads.js'
+import cartRoutes from './routes/cart.js'
+import categoryRoutes from './routes/categories.js'
+import inventoryRoutes from './routes/inventory.js'
+import accountingRoutes from './routes/accounting.js'
+import notificationRoutes from './routes/notifications.js'
+import spTerritoryRoutes from './routes/sp-territories.js'
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
 const app = express()
 const PORT = Number(process.env.PORT) || 3001
@@ -33,6 +48,18 @@ app.use('/api/orders', orderRoutes)
 app.use('/api/users', userRoutes)
 app.use('/api/commissions', commissionRoutes)
 app.use('/api/dashboard', dashboardRoutes)
+app.use('/api/reports', reportRoutes)
+app.use('/api/invoices', invoiceRoutes)
+app.use('/api/audit', auditRoutes)
+app.use('/api/areas', areaRoutes)
+app.use('/api/uploads', uploadRoutes)
+app.use('/uploads', express.static(path.join(__dirname, '..', 'uploads')))
+app.use('/api/cart', cartRoutes)
+app.use('/api/categories', categoryRoutes)
+app.use('/api/inventory', inventoryRoutes)
+app.use('/api/accounting', accountingRoutes)
+app.use('/api/notifications', notificationRoutes)
+app.use('/api/sp-territories', spTerritoryRoutes)
 
 app.use((err: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
   console.error('Unhandled error:', err)

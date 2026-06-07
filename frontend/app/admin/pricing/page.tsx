@@ -102,7 +102,8 @@ export default function PricingPage() {
   }
 
   return (
-    <main className="min-h-screen bg-gray-50">
+    <div className="contents">
+<main className="min-h-screen bg-gray-50">
       <div className="flex h-16 items-center justify-between border-b border-gray-200 bg-white px-6">
         <h1 className="text-xl font-semibold text-gray-900">Manage Pricing</h1>
         <Button variant="outline" onClick={() => router.push('/dashboard')}>
@@ -244,5 +245,6 @@ export default function PricingPage() {
         )}
       </div>
     </main>
+    </div>
   )
 }

@@ -4,7 +4,6 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/lib/use-auth'
 import { usersApi } from '@/lib/api'
-import Navbar from '@/components/Navbar'
 
 const ADMIN_LINKS = [
   { href: '/admin/dashboard', label: 'Dashboard' },
@@ -40,8 +39,6 @@ export default function NewUserPage() {
   const inp = "w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <Navbar user={user} links={ADMIN_LINKS} />
       <div className="max-w-2xl mx-auto px-4 py-8">
         <div className="flex items-center gap-3 mb-6">
           <button onClick={() => router.push('/admin/users')} className="text-gray-400 hover:text-gray-600">
@@ -68,6 +65,5 @@ export default function NewUserPage() {
           </form>
         </div>
       </div>
-    </div>
   )
 }

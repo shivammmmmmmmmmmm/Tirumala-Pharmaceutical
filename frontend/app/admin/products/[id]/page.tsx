@@ -3,17 +3,9 @@
 import { useEffect, useState } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { useAuth } from '@/lib/use-auth'
-import { productsApi } from '@/lib/api'
-import Navbar from '@/components/Navbar'
-
-const ADMIN_LINKS = [
-  { href: '/admin/dashboard', label: 'Dashboard' },
-  { href: '/admin/products', label: 'Products' },
-  { href: '/admin/orders', label: 'Orders' },
-  { href: '/admin/users', label: 'Users' },
-  { href: '/admin/sales-persons', label: 'Sales Persons' },
-  { href: '/admin/commissions', label: 'Commissions' },
-]
+import { productsApi, uploadsApi } from '@/lib/api'
+import FileUpload from '@/components/FileUpload'
+import { getImageUrl } from '@/lib/image-utils'
 
 const CATEGORIES = ['Analgesics','Antibiotics','Antidiabetics','Cardiovascular','Gastrointestinal',
   'Antihistamines','Respiratory','Vitamins','Dermatology','Neurology','Oncology','Other']
@@ -29,8 +21,9 @@ export default function ProductFormPage() {
   const [form, setForm] = useState({
     name: '', companyName: '', category: '', description: '', ingredients: '',
     strength: '', dosageForm: 'Tablet', mrp: '', sellingPrice: '', discountPct: '',
-    sku: '', manufacturer: '', quantity: '', reorderLevel: '', isActive: true,
+    sku: '', manufacturer: '', quantity: '', reorderLevel: '', isActive: true, imageUrl: '',
   })
+  const [imageDataUrl, setImageDataUrl] = useState('')
   const [loading, setLoading] = useState(!isNew)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
@@ -50,7 +43,7 @@ export default function ProductFormPage() {
           mrp: String(p.mrp), sellingPrice: String(p.sellingPrice),
           discountPct: String(p.discountPct), sku: p.sku,
           manufacturer: p.manufacturer||'', quantity: String(p.quantity),
-          reorderLevel: String(p.reorderLevel), isActive: p.isActive,
+          reorderLevel: String(p.reorderLevel), isActive: p.isActive, imageUrl: p.imageUrl || '',
         })
       }).catch(() => setError('Product not found')).finally(() => setLoading(false))
     }
@@ -62,6 +55,11 @@ export default function ProductFormPage() {
     e.preventDefault()
     setError(''); setSuccess(''); setSaving(true)
     try {
+      let imageUrl = form.imageUrl
+      if (imageDataUrl) {
+        const up = await uploadsApi.upload({ docType: 'document', fileName: 'product.jpg', dataUrl: imageDataUrl })
+        imageUrl = up.url
+      }
       const payload = {
         name: form.name, companyName: form.companyName, category: form.category,
         description: form.description, ingredients: form.ingredients,
@@ -69,7 +67,7 @@ export default function ProductFormPage() {
         mrp: parseFloat(form.mrp)||0, sellingPrice: parseFloat(form.sellingPrice)||0,
         discountPct: parseFloat(form.discountPct)||0, sku: form.sku,
         manufacturer: form.manufacturer, quantity: parseInt(form.quantity)||0,
-        reorderLevel: parseInt(form.reorderLevel)||0, isActive: form.isActive,
+        reorderLevel: parseInt(form.reorderLevel)||0, isActive: form.isActive, imageUrl: imageUrl || null,
       }
       if (isNew) {
         await productsApi.create(payload)
@@ -93,9 +91,7 @@ export default function ProductFormPage() {
   const inp = "w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <Navbar user={user} links={ADMIN_LINKS} />
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div>
         <div className="flex items-center gap-3 mb-6">
           <button onClick={() => router.push('/admin/products')} className="text-gray-400 hover:text-gray-600">
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
@@ -165,6 +161,41 @@ export default function ProductFormPage() {
               </div>
             </div>
 
+            <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-6">
+              <h2 className="font-semibold text-gray-900 mb-4">Product Image</h2>
+              <div className="flex flex-col sm:flex-row gap-3">
+                <FileUpload label="Choose from gallery" onFile={(dataUrl) => setImageDataUrl(dataUrl)} accept="image/*" />
+                <FileUpload label="Capture from camera" onFile={(dataUrl) => setImageDataUrl(dataUrl)} accept="image/*" capture="environment" />
+              </div>
+              {/* Preview */}
+              {(imageDataUrl || form.imageUrl) && (
+                <div className="mt-4 flex items-center gap-4">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={imageDataUrl || getImageUrl(form.imageUrl)}
+                    alt="Product preview"
+                    className="h-20 w-20 rounded-lg object-cover border border-gray-200 shadow-sm"
+                  />
+                  <div className="text-sm text-gray-500">
+                    {imageDataUrl ? (
+                      <span className="text-green-600 font-medium">New image selected — will be uploaded on save</span>
+                    ) : (
+                      <span>Current image</span>
+                    )}
+                    {imageDataUrl && (
+                      <button
+                        type="button"
+                        onClick={() => setImageDataUrl('')}
+                        className="block mt-1 text-xs text-red-500 hover:text-red-700 transition-colors"
+                      >
+                        Remove selection
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+
             {/* Inventory */}
             <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-6">
               <h2 className="font-semibold text-gray-900 mb-4">Inventory</h2>
@@ -191,6 +222,5 @@ export default function ProductFormPage() {
           </form>
         )}
       </div>
-    </div>
   )
 }

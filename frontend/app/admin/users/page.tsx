@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { useAuth } from '@/lib/use-auth'
 import { usersApi } from '@/lib/api'
-import Navbar from '@/components/Navbar'
 import type { User } from '@/lib/types'
 
 const ADMIN_LINKS = [
@@ -21,11 +20,13 @@ export default function AdminUsersPage() {
   const { user, loading: authLoading } = useAuth()
   const router = useRouter()
   const [users, setUsers] = useState<User[]>([])
+  const [salesPersons, setSalesPersons] = useState<User[]>([])
   const [total, setTotal] = useState(0)
   const [page, setPage] = useState(1)
   const [loading, setLoading] = useState(true)
   const [selected, setSelected] = useState<User | null>(null)
   const [creditInput, setCreditInput] = useState('')
+  const [assignedSpInput, setAssignedSpInput] = useState('')
   const [updating, setUpdating] = useState(false)
   const [ledger, setLedger] = useState<any[]>([])
   const [showLedger, setShowLedger] = useState(false)
@@ -44,6 +45,13 @@ export default function AdminUsersPage() {
 
   useEffect(() => { if (user?.role === 'ADMIN') fetchUsers() }, [user, fetchUsers])
 
+  useEffect(() => {
+    if (user?.role !== 'ADMIN') return
+    usersApi.list({ role: 'SALES_PERSON', pageSize: 100 })
+      .then(res => setSalesPersons(res.data))
+      .catch(console.error)
+  }, [user?.role])
+
   const toggleBlock = async (u: User) => {
     setUpdating(true)
     try { await usersApi.update(u.id, { isBlocked: !u.isBlocked }); fetchUsers(); setSelected(null) }
@@ -58,6 +66,16 @@ export default function AdminUsersPage() {
     catch (e: any) { alert(e.message) } finally { setUpdating(false) }
   }
 
+  const assignSalesPerson = async (u: User) => {
+    if (!assignedSpInput) { alert('Select a sales person'); return }
+    setUpdating(true)
+    try {
+      await usersApi.update(u.id, { assignedSpId: assignedSpInput })
+      fetchUsers()
+      setSelected(null)
+    } catch (e: any) { alert(e.message) } finally { setUpdating(false) }
+  }
+
   const viewLedger = async (u: User) => {
     try {
       const entries = await usersApi.ledger(u.id)
@@ -68,9 +86,7 @@ export default function AdminUsersPage() {
   if (authLoading || !user || user.role !== 'ADMIN') return null
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <Navbar user={user} links={ADMIN_LINKS} />
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div className="space-y-6">
         <div className="flex items-center justify-between mb-6">
           <div>
             <h1 className="text-2xl font-bold text-gray-900">Users</h1>
@@ -133,7 +149,6 @@ export default function AdminUsersPage() {
             )}
           </div>
         )}
-      </div>
 
       {/* Manage User Modal */}
       {selected && !showLedger && (
