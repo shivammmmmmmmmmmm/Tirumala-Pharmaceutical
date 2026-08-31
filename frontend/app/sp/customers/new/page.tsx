@@ -7,17 +7,40 @@ import { usersApi } from '@/lib/api'
 import FileUpload from '@/components/FileUpload'
 import type { CustomerType } from '@/lib/types'
 
+interface NewCustomerForm {
+  email: string
+  password: string
+  partyName: string
+  name: string
+  phone: string
+  organizationName: string
+  customerType: CustomerType
+  billingAddress: string
+  shippingAddress: string
+  latitude: string
+  longitude: string
+  drugLicenceNumber: string
+  drugLicenceExpiry: string
+  gstNumber: string
+  foodLicenceNumber: string
+}
+
 export default function SPNewCustomerPage() {
   const { user, loading: authLoading } = useAuth()
   const router = useRouter()
-  const [form, setForm] = useState({
-    email: '', password: '', name: '', phone: '', organizationName: '',
-    customerType: 'PHARMACY' as CustomerType,
+  const [form, setForm] = useState<NewCustomerForm>({
+    email: '', password: '', partyName: '', name: '', phone: '', organizationName: '',
+    customerType: 'PHARMACY',
     billingAddress: '', shippingAddress: '',
     latitude: '', longitude: '',
+    drugLicenceNumber: '', drugLicenceExpiry: '', gstNumber: '', foodLicenceNumber: '',
   })
   const [aadhaarDataUrl, setAadhaar] = useState('')
-  const [photoDataUrl, setPhoto] = useState('')
+  const [passportPhotoDataUrl, setPassportPhoto] = useState('')
+  const [drugLicenceDataUrl, setDrugLicenceDataUrl] = useState('')
+  const [gstProofDataUrl, setGstProofDataUrl] = useState('')
+  const [foodLicenceDataUrl, setFoodLicenceDataUrl] = useState('')
+  const [salesPersonLivePhotoDataUrl, setSalesPersonLivePhotoDataUrl] = useState('')
   const [sameAsBilling, setSameAsBilling] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
@@ -31,7 +54,7 @@ export default function SPNewCustomerPage() {
     if (sameAsBilling) setForm(f => ({ ...f, shippingAddress: f.billingAddress }))
   }, [sameAsBilling, form.billingAddress])
 
-  const set = (k: string, v: string) => setForm(f => ({ ...f, [k]: v }))
+  const set = (k: keyof NewCustomerForm, v: string) => setForm(f => ({ ...f, [k]: v }))
 
   const detectLocation = () => {
     if (!navigator.geolocation) {
@@ -51,25 +74,59 @@ export default function SPNewCustomerPage() {
     e.preventDefault()
     setError('')
     setSuccess('')
+
+    if (!form.name.trim() || !form.phone.trim() || !form.organizationName.trim()) {
+      setError('Customer name, phone, and organization name are required')
+      return
+    }
+    if (!form.email.trim() || !form.password.trim()) {
+      setError('Email and password are required')
+      return
+    }
     if (!form.billingAddress.trim() || !form.shippingAddress.trim()) {
       setError('Billing and shipping addresses are required')
       return
     }
-    if (!aadhaarDataUrl) {
-      setError('Aadhaar document is required')
+    if (!form.drugLicenceNumber.trim() || !form.drugLicenceExpiry.trim() || !form.gstNumber.trim() || !form.foodLicenceNumber.trim()) {
+      setError('All important details are required')
       return
     }
-    if (!photoDataUrl) {
+    if (!aadhaarDataUrl) {
+      setError('Aadhaar/PAN document is required')
+      return
+    }
+    if (!passportPhotoDataUrl) {
       setError('Passport-size photo is required')
       return
     }
+    if (!drugLicenceDataUrl) {
+      setError('Drug licence copy is required')
+      return
+    }
+    if (!gstProofDataUrl) {
+      setError('GST proof document is required')
+      return
+    }
+    if (!foodLicenceDataUrl) {
+      setError('Food licence copy is required')
+      return
+    }
+    if (!salesPersonLivePhotoDataUrl) {
+      setError('Live salesperson photo is required')
+      return
+    }
+
     setSaving(true)
     try {
       await usersApi.create({
         ...form,
         newRole: 'USER',
         aadhaarDataUrl,
-        photoDataUrl,
+        photoDataUrl: passportPhotoDataUrl,
+        drugLicenceDataUrl,
+        gstProofDataUrl,
+        foodLicenceDataUrl,
+        salesPersonLivePhotoDataUrl,
         latitude: form.latitude ? Number(form.latitude) : undefined,
         longitude: form.longitude ? Number(form.longitude) : undefined,
       })
@@ -110,38 +167,54 @@ export default function SPNewCustomerPage() {
         <form onSubmit={handleSubmit} className="space-y-5">
           <section>
             <h2 className="font-semibold text-slate-800 mb-3">Basic details</h2>
-            <div className="grid sm:grid-cols-2 gap-4">
+            <div className="grid sm:grid-cols-3 gap-4">
+              <div>
+                <label htmlFor="partyName" className="block text-xs font-semibold text-slate-600 mb-1">Party name *</label>
+                <input id="partyName" name="partyName" className={inp} value={form.partyName} onChange={e => set('partyName', e.target.value)} required />
+              </div>
+              <div>
+                <label htmlFor="name" className="block text-xs font-semibold text-slate-600 mb-1">Customer name *</label>
+                <input id="name" name="name" className={inp} value={form.name} onChange={e => set('name', e.target.value)} required />
+              </div>
+              <div>
+                <label htmlFor="phone" className="block text-xs font-semibold text-slate-600 mb-1">Phone *</label>
+                <input id="phone" name="phone" type="tel" className={inp} value={form.phone} onChange={e => set('phone', e.target.value)} required />
+              </div>
+              <div className="sm:col-span-3">
+                <label htmlFor="organizationName" className="block text-xs font-semibold text-slate-600 mb-1">Shop / organization name *</label>
+                <input id="organizationName" name="organizationName" className={inp} value={form.organizationName} onChange={e => set('organizationName', e.target.value)} required />
+              </div>
               <div className="sm:col-span-2">
-                <label className="block text-xs font-semibold text-slate-600 mb-1">Full name *</label>
-                <input className={inp} value={form.name} onChange={e => set('name', e.target.value)} required />
+                <label htmlFor="email" className="block text-xs font-semibold text-slate-600 mb-1">Email *</label>
+                <input id="email" name="email" type="email" className={inp} value={form.email} onChange={e => set('email', e.target.value)} required />
               </div>
-              <div>
-                <label className="block text-xs font-semibold text-slate-600 mb-1">Phone *</label>
-                <input className={inp} value={form.phone} onChange={e => set('phone', e.target.value)} required />
-              </div>
-              <div>
-                <label className="block text-xs font-semibold text-slate-600 mb-1">Customer type *</label>
-                <select className={inp} value={form.customerType} onChange={e => set('customerType', e.target.value)}>
-                  {(['PHARMACY', 'HOSPITAL', 'CLINIC', 'DISTRIBUTOR'] as const).map(t => (
-                    <option key={t} value={t}>{t}</option>
-                  ))}
-                </select>
-              </div>
-              <div className="sm:col-span-2">
-                <label className="block text-xs font-semibold text-slate-600 mb-1">Shop / organization name *</label>
-                <input className={inp} value={form.organizationName} onChange={e => set('organizationName', e.target.value)} required />
-              </div>
-              <div>
-                <label className="block text-xs font-semibold text-slate-600 mb-1">Email *</label>
-                <input className={inp} type="email" value={form.email} onChange={e => set('email', e.target.value)} required />
-              </div>
-              <div>
-                <label className="block text-xs font-semibold text-slate-600 mb-1">Password *</label>
-                <input className={inp} type="password" value={form.password} onChange={e => set('password', e.target.value)} required minLength={6} />
+              <div className="sm:col-span-1">
+                <label htmlFor="password" className="block text-xs font-semibold text-slate-600 mb-1">Password *</label>
+                <input id="password" name="password" type="password" className={inp} value={form.password} onChange={e => set('password', e.target.value)} required minLength={6} />
               </div>
             </div>
           </section>
-
+          <section>
+            <h2 className="font-semibold text-slate-800 mb-3">Important details</h2>
+            <div className="grid sm:grid-cols-2 gap-4">
+              <div>
+                <label htmlFor="drugLicenceNumber" className="block text-xs font-semibold text-slate-600 mb-1">Drug licence number *</label>
+                <input id="drugLicenceNumber" name="drugLicenceNumber" className={inp} value={form.drugLicenceNumber} onChange={e => set('drugLicenceNumber', e.target.value)} required />
+              </div>
+              <div>
+                <label htmlFor="drugLicenceExpiry" className="block text-xs font-semibold text-slate-600 mb-1">Drug licence expiry date *</label>
+                <input id="drugLicenceExpiry" name="drugLicenceExpiry" type="date" className={inp} value={form.drugLicenceExpiry} onChange={e => set('drugLicenceExpiry', e.target.value)} required />
+              </div>
+              <div>
+                <label htmlFor="gstNumber" className="block text-xs font-semibold text-slate-600 mb-1">GST number *</label>
+                <input id="gstNumber" name="gstNumber" className={inp} value={form.gstNumber} onChange={e => set('gstNumber', e.target.value)} required />
+              </div>
+              <div>
+                <label htmlFor="foodLicenceNumber" className="block text-xs font-semibold text-slate-600 mb-1">Food licence number *</label>
+                <input id="foodLicenceNumber" name="foodLicenceNumber" className={inp} value={form.foodLicenceNumber} onChange={e => set('foodLicenceNumber', e.target.value)} required />
+              </div>
+            </div>
+          </section>
           <section>
             <h2 className="font-semibold text-slate-800 mb-3">Addresses</h2>
             <div className="space-y-4">
@@ -174,13 +247,16 @@ export default function SPNewCustomerPage() {
           <section>
             <h2 className="font-semibold text-slate-800 mb-3">Documents</h2>
             <div className="grid sm:grid-cols-2 gap-4">
-              <FileUpload label="Aadhaar card *" onFile={(d) => setAadhaar(d)} accept="image/*,.pdf" />
-              <FileUpload label="Passport-size photo *" onFile={(d) => setPhoto(d)} accept="image/*" capture="user" />
-              <FileUpload label="Photo from gallery" onFile={(d) => setPhoto(d)} accept="image/*" />
+              <FileUpload label="Aadhaar card / PAN *" onFile={(d) => setAadhaar(d)} accept="image/*,.pdf" capture="environment" showSourceOptions />
+              <FileUpload label="Passport-size photo *" onFile={(d) => setPassportPhoto(d)} accept="image/*" capture="user" showSourceOptions />
+              <FileUpload label="Drug licence copy *" onFile={(d) => setDrugLicenceDataUrl(d)} accept="image/*,.pdf" capture="environment" showSourceOptions />
+              <FileUpload label="GST number proof *" onFile={(d) => setGstProofDataUrl(d)} accept="image/*,.pdf" capture="environment" showSourceOptions />
+              <FileUpload label="Food licence copy *" onFile={(d) => setFoodLicenceDataUrl(d)} accept="image/*,.pdf" capture="environment" showSourceOptions />
+              <FileUpload label="Sales person live photo *" onFile={(d) => setSalesPersonLivePhotoDataUrl(d)} accept="image/*" capture="user" showSourceOptions />
             </div>
           </section>
 
-          <div className="flex gap-3 pt-2">
+          <div className="flex justify-center gap-3 pt-2">
             <button type="submit" disabled={saving} className="px-6 py-2.5 bg-gradient-to-r from-emerald-500 to-teal-600 text-white font-semibold rounded-xl text-sm disabled:opacity-60">
               {saving ? 'Submitting…' : 'Submit for approval'}
             </button>

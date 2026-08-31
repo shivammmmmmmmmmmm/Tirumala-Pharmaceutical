@@ -7,6 +7,7 @@ interface Props {
   onFile: (dataUrl: string, fileName?: string) => void
   accept?: string
   capture?: 'user' | 'environment'
+  showSourceOptions?: boolean
 }
 
 // ── Camera Modal ─────────────────────────────────────────────────────────────
@@ -16,20 +17,22 @@ function CameraModal({ onCapture, onClose }: { onCapture: (dataUrl: string) => v
   const [ready, setReady] = useState(false)
   const [error, setError] = useState('')
 
-  const startCamera = useCallback(async (node: HTMLVideoElement | null) => {
+  const startCamera = useCallback((node: HTMLVideoElement | null) => {
     if (!node) return
     ;(videoRef as React.MutableRefObject<HTMLVideoElement | null>).current = node
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } },
-        audio: false,
-      })
-      streamRef.current = stream
-      node.srcObject = stream
-      node.onloadedmetadata = () => { node.play(); setReady(true) }
-    } catch {
-      setError('Could not access camera. Make sure you grant camera permission.')
-    }
+    ;(async () => {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } },
+          audio: false,
+        })
+        streamRef.current = stream
+        node.srcObject = stream
+        node.onloadedmetadata = () => { node.play(); setReady(true) }
+      } catch {
+        setError('Could not access camera. Make sure you grant camera permission.')
+      }
+    })()
   }, [])
 
   const stop = () => {
@@ -132,18 +135,116 @@ function CameraModal({ onCapture, onClose }: { onCapture: (dataUrl: string) => v
   )
 }
 
+// ── Toast Notification ────────────────────────────────────────────────────────
+function Toast({ message, type, onClose }: { message: string; type: 'success' | 'error'; onClose: () => void }) {
+  return (
+    <div className="fixed top-6 right-6 z-[100] animate-slide-in">
+      <div className={`flex items-center gap-3 px-5 py-3.5 rounded-xl shadow-xl border ${
+        type === 'success'
+          ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
+          : 'bg-red-50 border-red-200 text-red-700'
+      }`}>
+        {type === 'success' ? (
+          <svg className="h-5 w-5 shrink-0 text-emerald-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
+            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>
+          </svg>
+        ) : (
+          <svg className="h-5 w-5 shrink-0 text-red-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
+            <circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/>
+          </svg>
+        )}
+        <p className="text-sm font-medium">{message}</p>
+        <button onClick={onClose} className="ml-2 p-0.5 rounded-full hover:bg-black/5 transition-colors">
+          <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+            <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+  )
+}
+
+// ── SourcePickerModal ─────────────────────────────────────────────────────────
+function SourcePickerModal({ label, canUseCamera, onGallery, onCamera, onClose }: {
+  label: string
+  canUseCamera: boolean
+  onGallery: () => void
+  onCamera: () => void
+  onClose: () => void
+}) {
+  return (
+    <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={onClose}>
+      <div
+        className="bg-white rounded-2xl shadow-2xl w-full max-w-xs"
+        onClick={e => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+          <p className="text-sm font-semibold text-gray-800">{label}</p>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 transition-colors rounded-lg p-1">
+            <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+              <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+            </svg>
+          </button>
+        </div>
+
+        {/* Options */}
+        <div className="grid gap-3 p-5">
+          <button
+            type="button"
+            onClick={() => { onGallery(); onClose() }}
+            className="w-full flex items-center gap-3 rounded-xl border border-gray-200 bg-gray-50 px-4 py-3.5 text-sm font-medium text-gray-700 hover:border-blue-400 hover:bg-blue-50 hover:text-blue-700 transition-colors"
+          >
+            <svg className="h-5 w-5 shrink-0 text-gray-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round">
+              <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+              <circle cx="8.5" cy="8.5" r="1.5"/>
+              <polyline points="21 15 16 10 5 21"/>
+            </svg>
+            Open gallery
+          </button>
+          {canUseCamera && (
+            <button
+              type="button"
+              onClick={() => { onCamera(); onClose() }}
+              className="w-full flex items-center gap-3 rounded-xl border border-gray-200 bg-gray-50 px-4 py-3.5 text-sm font-medium text-gray-700 hover:border-blue-400 hover:bg-blue-50 hover:text-blue-700 transition-colors"
+            >
+              <svg className="h-5 w-5 shrink-0 text-gray-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round">
+                <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+                <circle cx="12" cy="13" r="4"/>
+              </svg>
+              Open camera
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ── FileUpload ────────────────────────────────────────────────────────────────
-export default function FileUpload({ label, onFile, accept = 'image/*,.pdf', capture }: Props) {
-  const inputRef = useRef<HTMLInputElement>(null)
+export default function FileUpload({ label, onFile, accept = 'image/*,.pdf', capture, showSourceOptions }: Props) {
+  const galleryInputRef = useRef<HTMLInputElement>(null)
+  const cameraInputRef = useRef<HTMLInputElement>(null)
   const [showCamera, setShowCamera] = useState(false)
+  const [showSourcePicker, setShowSourcePicker] = useState(false)
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null)
   const isCamera = capture === 'environment' || capture === 'user'
+  const canUseCamera = !!accept.match(/image\//) || isCamera
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
-    if (file.size > 5 * 1024 * 1024) { alert('File must be under 5 MB'); return }
+    if (file.size > 5 * 1024 * 1024) {
+      setToast({ message: 'File must be under 5 MB', type: 'error' })
+      setTimeout(() => setToast(null), 3000)
+      return
+    }
     const reader = new FileReader()
-    reader.onload = () => onFile(String(reader.result), file.name)
+    reader.onload = () => {
+      onFile(String(reader.result), file.name)
+      setToast({ message: 'File uploaded successfully', type: 'success' })
+      setTimeout(() => setToast(null), 3000)
+    }
     reader.readAsDataURL(file)
     e.target.value = ''
   }
@@ -153,62 +254,104 @@ export default function FileUpload({ label, onFile, accept = 'image/*,.pdf', cap
     onFile(dataUrl, `capture-${Date.now()}.jpg`)
   }
 
-  const handleClick = () => {
-    if (isCamera) {
-      // On mobile the native capture works fine; on desktop open the modal
-      const isMobile = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent)
-      if (isMobile) {
-        inputRef.current?.click()
-      } else {
-        setShowCamera(true)
-      }
-    } else {
-      inputRef.current?.click()
+  const openGallery = () => {
+    galleryInputRef.current?.click()
+  }
+
+  const openCamera = () => {
+    const isMobile = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent)
+    if (isMobile && cameraInputRef.current) {
+      cameraInputRef.current.click()
+      return
     }
+    setShowCamera(true)
   }
 
   return (
     <>
-      {/* Hidden file input (used for gallery + mobile camera) */}
       <input
-        ref={inputRef}
+        ref={galleryInputRef}
         type="file"
         accept={accept}
-        capture={isCamera ? capture : undefined}
         onChange={handleFileChange}
         className="sr-only"
         aria-hidden="true"
         tabIndex={-1}
       />
+      {canUseCamera && (
+        <input
+          ref={cameraInputRef}
+          type="file"
+          accept={accept}
+          capture={capture}
+          onChange={handleFileChange}
+          className="sr-only"
+          aria-hidden="true"
+          tabIndex={-1}
+        />
+      )}
 
-      {/* Styled button */}
-      <button
-        type="button"
-        onClick={handleClick}
-        className="group relative w-full flex items-center justify-center gap-2.5 px-4 py-3 rounded-xl border-2 border-dashed border-gray-200 bg-gray-50 text-sm font-medium text-gray-600 transition-all duration-200 hover:border-blue-400 hover:bg-blue-50 hover:text-blue-700 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
-      >
-        {isCamera ? (
-          <svg className="h-5 w-5 shrink-0 text-gray-400 transition-colors duration-200 group-hover:text-blue-500"
-            viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round">
-            <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
-            <circle cx="12" cy="13" r="4"/>
-          </svg>
-        ) : (
-          <svg className="h-5 w-5 shrink-0 text-gray-400 transition-colors duration-200 group-hover:text-blue-500"
-            viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round">
-            <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
-            <circle cx="8.5" cy="8.5" r="1.5"/>
-            <polyline points="21 15 16 10 5 21"/>
-          </svg>
-        )}
-        <span>{label}</span>
-        <span className="pointer-events-none absolute inset-0 rounded-xl opacity-0 ring-1 ring-inset ring-blue-400 transition-opacity duration-200 group-hover:opacity-100" />
-      </button>
+      {showSourceOptions ? (
+        <div className="grid gap-2">
+          <p className="text-sm font-medium text-gray-700">{label}</p>
+          <button
+            type="button"
+            onClick={() => setShowSourcePicker(true)}
+            className="w-full rounded-xl border border-dashed border-gray-200 bg-gray-50 px-4 py-3 text-sm font-medium text-gray-700 hover:border-blue-400 hover:bg-blue-50 hover:text-blue-700"
+          >
+            Upload
+          </button>
+        </div>
+      ) : (
+        <button
+          type="button"
+          onClick={openGallery}
+          className="group relative w-full flex items-center justify-center gap-2.5 px-4 py-3 rounded-xl border-2 border-dashed border-gray-200 bg-gray-50 text-sm font-medium text-gray-600 transition-all duration-200 hover:border-blue-400 hover:bg-blue-50 hover:text-blue-700 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
+        >
+          {canUseCamera ? (
+            <svg className="h-5 w-5 shrink-0 text-gray-400 transition-colors duration-200 group-hover:text-blue-500"
+              viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round">
+              <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+              <circle cx="12" cy="13" r="4"/>
+            </svg>
+          ) : (
+            <svg className="h-5 w-5 shrink-0 text-gray-400 transition-colors duration-200 group-hover:text-blue-500"
+              viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round">
+              <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+              <circle cx="8.5" cy="8.5" r="1.5"/>
+              <polyline points="21 15 16 10 5 21"/>
+            </svg>
+          )}
+          <span>{label}</span>
+          <span className="pointer-events-none absolute inset-0 rounded-xl opacity-0 ring-1 ring-inset ring-blue-400 transition-opacity duration-200 group-hover:opacity-100" />
+        </button>
+      )}
 
-      {/* Camera modal (desktop only) */}
+      {showSourcePicker && (
+        <SourcePickerModal
+          label={label}
+          canUseCamera={canUseCamera}
+          onGallery={openGallery}
+          onCamera={openCamera}
+          onClose={() => setShowSourcePicker(false)}
+        />
+      )}
+
       {showCamera && (
         <CameraModal onCapture={handleCameraCapture} onClose={() => setShowCamera(false)} />
       )}
+
+      {toast && (
+        <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />
+      )}
+
+      <style jsx global>{`
+        @keyframes slide-in {
+          from { transform: translateX(100%); opacity: 0; }
+          to { transform: translateX(0); opacity: 1; }
+        }
+        .animate-slide-in { animation: slide-in 0.3s ease-out; }
+      `}</style>
     </>
   )
 }

@@ -11,6 +11,9 @@ export const NAV_BY_ROLE: Record<UserRole, NavGroup[]> = {
       items: [
         { href: '/admin/products', label: 'Products' },
         { href: '/admin/categories', label: 'Categories' },
+        { href: '/admin/companies', label: 'Companies' },
+        { href: '/admin/compositions', label: 'Compositions' },
+        { href: '/admin/gst-rates', label: 'GST Rates' },
         { href: '/admin/inventory', label: 'Inventory' },
         { href: '/admin/pricing', label: 'Pricing' },
       ],

@@ -13,6 +13,7 @@ export default function InventoryPage() {
   const [alerts, setAlerts] = useState<any>(null)
   const [productId, setProductId] = useState('')
   const [delta, setDelta] = useState('')
+  const [adjustError, setAdjustError] = useState('')
 
   const load = async () => {
     setLow(await inventoryApi.lowStock())
@@ -27,9 +28,20 @@ export default function InventoryPage() {
 
   const adjust = async (e: React.FormEvent) => {
     e.preventDefault()
-    await inventoryApi.adjust(productId, parseInt(delta), 'Manual')
-    setDelta('')
-    load()
+    const quantityChange = Number(delta)
+    if (!productId.trim() || !delta.trim() || !Number.isFinite(quantityChange)) {
+      setAdjustError('Enter a product ID and a valid stock adjustment.')
+      return
+    }
+
+    setAdjustError('')
+    try {
+      await inventoryApi.adjust(productId.trim(), quantityChange, 'Manual')
+      setDelta('')
+      load()
+    } catch (error: any) {
+      setAdjustError(error.message || 'Unable to adjust stock.')
+    }
   }
 
   if (authLoading || !user) return null
@@ -44,9 +56,10 @@ export default function InventoryPage() {
           </p>
         )}
         <form onSubmit={adjust} className="bg-white border rounded-xl p-4 mb-6 flex flex-wrap gap-2">
-          <input value={productId} onChange={e => setProductId(e.target.value)} placeholder="Product ID" className="border rounded px-3 py-2 text-sm flex-1 min-w-[120px]" />
-          <input value={delta} onChange={e => setDelta(e.target.value)} placeholder="Delta (+/-)" type="number" className="border rounded px-3 py-2 text-sm w-28" />
+          <input value={productId} onChange={e => setProductId(e.target.value)} placeholder="Product ID" required className="border rounded px-3 py-2 text-sm flex-1 min-w-[120px]" />
+          <input value={delta} onChange={e => setDelta(e.target.value)} placeholder="Delta (+/-)" type="number" required className="border rounded px-3 py-2 text-sm w-28" />
           <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm">Adjust Stock</button>
+          {adjustError && <p className="w-full text-sm text-red-600">{adjustError}</p>}
         </form>
         <div className="bg-white border rounded-xl overflow-hidden">
           <table className="w-full text-sm">

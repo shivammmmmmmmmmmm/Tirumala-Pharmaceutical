@@ -46,8 +46,8 @@ router.get('/alerts', authMiddleware, roleMiddleware('ADMIN'), async (_req, res:
 router.post('/adjust', authMiddleware, roleMiddleware('ADMIN'), async (req: AuthRequest, res: Response) => {
   try {
     const { productId, delta, reason } = req.body
-    if (!productId || delta === undefined) {
-      return res.status(400).json({ success: false, error: 'productId and delta required' })
+    if (!productId || delta === undefined || delta === null || delta === '' || !Number.isFinite(Number(delta))) {
+      return res.status(400).json({ success: false, error: 'A product ID and valid stock adjustment are required' })
     }
     const p = await queryOne<RowDataPacket>('SELECT * FROM products WHERE id=?', [productId])
     if (!p) return res.status(404).json({ success: false, error: 'Product not found' })

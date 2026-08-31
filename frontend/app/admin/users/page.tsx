@@ -102,14 +102,14 @@ export default function AdminUsersPage() {
             <table className="w-full text-sm">
               <thead className="bg-gray-50 border-b border-gray-100">
                 <tr>
-                  {['Name', 'Email', 'Organization', 'Credit Limit', 'Credit Used', 'Available', 'Status', 'Actions'].map(h => (
+                  {['Name', 'Email', 'Organization', 'Credit Limit', 'Credit Used', 'Available', 'Actions'].map(h => (
                     <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50">
                 {users.length === 0 ? (
-                  <tr><td colSpan={8} className="px-4 py-12 text-center text-gray-400">No users found</td></tr>
+                  <tr><td colSpan={7} className="px-4 py-12 text-center text-gray-400">No users found</td></tr>
                 ) : users.map(u => {
                   const available = (u.creditLimit||0) - (u.creditUsed||0)
                   return (
@@ -121,16 +121,17 @@ export default function AdminUsersPage() {
                       <td className="px-4 py-3 text-red-600">₹{Number(u.creditUsed||0).toLocaleString('en-IN', { maximumFractionDigits: 0 })}</td>
                       <td className="px-4 py-3 text-green-600 font-medium">₹{Number(available).toLocaleString('en-IN', { maximumFractionDigits: 0 })}</td>
                       <td className="px-4 py-3">
-                        <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${u.isBlocked ? 'bg-red-100 text-red-700' : u.isActive ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
-                          {u.isBlocked ? 'Blocked' : u.isActive ? 'Active' : 'Inactive'}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="flex gap-1">
-                          <button onClick={() => { setSelected(u); setCreditInput(String(u.creditLimit||0)) }}
-                            className="px-2 py-1 text-xs bg-blue-50 text-blue-700 rounded hover:bg-blue-100 font-medium">Manage</button>
-                          <button onClick={() => viewLedger(u)}
-                            className="px-2 py-1 text-xs bg-gray-50 text-gray-700 rounded hover:bg-gray-100 font-medium">Ledger</button>
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => { setSelected(u); setCreditInput(String(u.creditLimit||0)) }}
+                            title="Edit / Manage"
+                            className="h-8 w-8 flex items-center justify-center rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-600 transition"
+                          >
+                            <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                              <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                            </svg>
+                          </button>
                         </div>
                       </td>
                     </tr>

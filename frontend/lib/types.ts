@@ -27,11 +27,38 @@ export interface User {
 }
 
 export interface Product {
-  id: string; name: string; companyName?: string; category?: string
-  description?: string; ingredients?: string; strength?: string; dosageForm?: string
-  mrp: number; sellingPrice: number; discountPct: number; sku: string
-  manufacturer?: string; quantity: number; reorderLevel: number
-  imageUrl?: string | null; isActive: boolean; createdAt?: string; updatedAt?: string
+  id: string; name: string; companyName?: string; companyId?: string | null
+  compositionId?: string | null; gstId?: string | null
+  category?: string; description?: string; ingredients?: string
+  strength?: string; dosageForm?: string
+  mrp: number; sellingPrice: number; discountPct: number; gstPct?: number
+  sku: string; manufacturer?: string; quantity: number; reorderLevel: number
+  imageUrl?: string | null; isActive: boolean
+  hsnCode?: string | null; packing?: string | null
+  unitsPerBox?: number; retailUnits?: number; minQuantity?: number
+  storageLocation?: string | null; schedule?: string | null
+  scheme?: string | null; barcode?: string | null
+  batchNumber?: string | null; expiryDate?: string | null
+  createdAt?: string; updatedAt?: string
+}
+
+export interface Company {
+  id: string; name: string; mfgCode?: string | null
+  address?: string | null; city?: string | null; phone?: string | null
+  orderPct1?: number; orderPct2?: number; orderPct3?: number; orderFactor?: number
+  stopOperations?: boolean; allowMobileAnalysis?: boolean
+  mrMobile?: string | null; mrEmail?: string | null
+  asmMobile?: string | null; asmEmail?: string | null
+  rsmMobile?: string | null; rsmEmail?: string | null
+  isActive: boolean; createdAt?: string; updatedAt?: string
+}
+
+export interface Composition {
+  id: string; name: string; description?: string | null; isActive: boolean
+}
+
+export interface GstRate {
+  id: string; name: string; code?: string | null; percentage: number; isActive: boolean
 }
 
 export interface OrderItem {

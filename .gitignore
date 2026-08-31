@@ -48,3 +48,7 @@ coverage/
 # Misc
 *.pem
 .vercel
+
+# Production build artifacts (generated — not source)
+deploy/
+deploy.zip

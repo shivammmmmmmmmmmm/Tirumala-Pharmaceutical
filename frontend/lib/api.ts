@@ -46,19 +46,30 @@ export const authApi = {
 
 // ── Products ──────────────────────────────────────────────────────────────────
 export const productsApi = {
-  list: (p?: { search?: string; category?: string; ingredient?: string; company?: string; strength?: string; page?: number; pageSize?: number }) => {
+  list: (p?: { search?: string; category?: string; ingredient?: string; company?: string; companyId?: string; compositionId?: string; dosageForm?: string; page?: number; pageSize?: number }) => {
     const q = new URLSearchParams()
     if (p?.search) q.set('search', p.search)
     if (p?.category) q.set('category', p.category)
     if (p?.ingredient) q.set('ingredient', p.ingredient)
     if (p?.company) q.set('company', p.company)
-    if (p?.strength) q.set('strength', p.strength)
+    if (p?.companyId) q.set('companyId', p.companyId)
+    if (p?.compositionId) q.set('compositionId', p.compositionId)
+    if (p?.dosageForm) q.set('dosageForm', p.dosageForm)
     if (p?.page) q.set('page', String(p.page))
     if (p?.pageSize) q.set('pageSize', String(p.pageSize))
     return req<PaginatedResponse<Product>>('GET', `/products${q.toString() ? `?${q}` : ''}`)
   },
   get: (id: string) => req<Product>('GET', `/products/${id}`),
   categories: () => req<string[]>('GET', '/products/categories'),
+  filterOptions: (p?: { dosageForm?: string; companyId?: string; compositionId?: string }) => {
+    const q = new URLSearchParams()
+    if (p?.dosageForm) q.set('dosageForm', p.dosageForm)
+    if (p?.companyId) q.set('companyId', p.companyId)
+    if (p?.compositionId) q.set('compositionId', p.compositionId)
+    return req<{ dosageForms: string[]; companies: { id: string; name: string }[]; products: { id: string; name: string }[]; compositions: { id: string; name: string }[] }>(
+      'GET', `/products/filter-options${q.toString() ? `?${q}` : ''}`
+    )
+  },
   create: (d: Partial<Product>) => req<Product>('POST', '/products', d),
   update: (id: string, d: Partial<Product>) => req<Product>('PUT', `/products/${id}`, d),
   delete: (id: string) => req<void>('DELETE', `/products/${id}`),
@@ -117,6 +128,53 @@ export const categoriesApi = {
   create: (d: { name: string; description?: string }) => req<any>('POST', '/categories', d),
   update: (id: string, d: any) => req<any>('PUT', `/categories/${id}`, d),
   delete: (id: string) => req<void>('DELETE', `/categories/${id}`),
+}
+
+export const companiesApi = {
+  list: (p?: { search?: string; activeOnly?: boolean }) => {
+    const q = new URLSearchParams()
+    if (p?.search) q.set('search', p.search)
+    if (p?.activeOnly === false) q.set('activeOnly', '0')
+    return req<import('./types').Company[]>('GET', `/companies${q.toString() ? `?${q}` : ''}`)
+  },
+  get: (id: string) => req<import('./types').Company>('GET', `/companies/${id}`),
+  create: (d: Partial<import('./types').Company>) => req<import('./types').Company>('POST', '/companies', d),
+  update: (id: string, d: Partial<import('./types').Company>) => req<import('./types').Company>('PUT', `/companies/${id}`, d),
+  delete: (id: string) => req<void>('DELETE', `/companies/${id}`),
+}
+
+export const compositionsApi = {
+  list: (p?: { search?: string; activeOnly?: boolean }) => {
+    const q = new URLSearchParams()
+    if (p?.search) q.set('search', p.search)
+    if (p?.activeOnly === false) q.set('activeOnly', '0')
+    return req<import('./types').Composition[]>('GET', `/compositions${q.toString() ? `?${q}` : ''}`)
+  },
+  create: (d: { name: string; description?: string }) => req<import('./types').Composition>('POST', '/compositions', d),
+  update: (id: string, d: Partial<import('./types').Composition>) => req<import('./types').Composition>('PUT', `/compositions/${id}`, d),
+  delete: (id: string) => req<void>('DELETE', `/compositions/${id}`),
+}
+
+export const gstRatesApi = {
+  list: (activeOnly = true) => req<import('./types').GstRate[]>('GET', `/gst-rates${activeOnly ? '' : '?activeOnly=0'}`),
+  create: (d: { name: string; code?: string; percentage: number }) => req<import('./types').GstRate>('POST', '/gst-rates', d),
+  update: (id: string, d: Partial<import('./types').GstRate>) => req<import('./types').GstRate>('PUT', `/gst-rates/${id}`, d),
+  delete: (id: string) => req<void>('DELETE', `/gst-rates/${id}`),
+}
+
+export const productFilterOptionsApi = {
+  get: (p?: { dosageForm?: string; companyId?: string; compositionId?: string }) => {
+    const q = new URLSearchParams()
+    if (p?.dosageForm) q.set('dosageForm', p.dosageForm)
+    if (p?.companyId) q.set('companyId', p.companyId)
+    if (p?.compositionId) q.set('compositionId', p.compositionId)
+    return req<{
+      dosageForms: string[]
+      companies: { id: string; name: string }[]
+      products: { id: string; name: string }[]
+      compositions: { id: string; name: string }[]
+    }>('GET', `/products/filter-options${q.toString() ? `?${q}` : ''}`)
+  },
 }
 
 export const inventoryApi = {

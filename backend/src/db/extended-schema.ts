@@ -1,6 +1,49 @@
 import { query, run, getActiveDriver } from './index.js'
 
 const EXTENDED_TABLES_SQLITE = `
+  CREATE TABLE IF NOT EXISTS companies (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    mfg_code TEXT,
+    address TEXT,
+    city TEXT,
+    phone TEXT,
+    order_pct_1 REAL DEFAULT 0,
+    order_pct_2 REAL DEFAULT 0,
+    order_pct_3 REAL DEFAULT 0,
+    order_factor REAL DEFAULT 1,
+    stop_operations INTEGER NOT NULL DEFAULT 0,
+    allow_mobile_analysis INTEGER NOT NULL DEFAULT 0,
+    mr_mobile TEXT,
+    mr_email TEXT,
+    asm_mobile TEXT,
+    asm_email TEXT,
+    rsm_mobile TEXT,
+    rsm_email TEXT,
+    is_active INTEGER NOT NULL DEFAULT 1,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+
+  CREATE TABLE IF NOT EXISTS compositions (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL UNIQUE,
+    description TEXT,
+    is_active INTEGER NOT NULL DEFAULT 1,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+
+  CREATE TABLE IF NOT EXISTS gst_rates (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    code TEXT,
+    percentage REAL NOT NULL DEFAULT 0,
+    is_active INTEGER NOT NULL DEFAULT 1,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+
   CREATE TABLE IF NOT EXISTS sp_territories (
     id TEXT PRIMARY KEY,
     sp_id TEXT NOT NULL REFERENCES users(id),
@@ -102,6 +145,49 @@ const EXTENDED_TABLES_SQLITE = `
 `
 
 const EXTENDED_TABLES_MYSQL = `
+  CREATE TABLE IF NOT EXISTS companies (
+    id VARCHAR(36) PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    mfg_code VARCHAR(100) NULL,
+    address TEXT NULL,
+    city VARCHAR(100) NULL,
+    phone VARCHAR(50) NULL,
+    order_pct_1 DECIMAL(5,2) DEFAULT 0,
+    order_pct_2 DECIMAL(5,2) DEFAULT 0,
+    order_pct_3 DECIMAL(5,2) DEFAULT 0,
+    order_factor DECIMAL(8,4) DEFAULT 1,
+    stop_operations TINYINT NOT NULL DEFAULT 0,
+    allow_mobile_analysis TINYINT NOT NULL DEFAULT 0,
+    mr_mobile VARCHAR(20) NULL,
+    mr_email VARCHAR(255) NULL,
+    asm_mobile VARCHAR(20) NULL,
+    asm_email VARCHAR(255) NULL,
+    rsm_mobile VARCHAR(20) NULL,
+    rsm_email VARCHAR(255) NULL,
+    is_active TINYINT NOT NULL DEFAULT 1,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+  );
+
+  CREATE TABLE IF NOT EXISTS compositions (
+    id VARCHAR(36) PRIMARY KEY,
+    name VARCHAR(500) NOT NULL UNIQUE,
+    description TEXT NULL,
+    is_active TINYINT NOT NULL DEFAULT 1,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+  );
+
+  CREATE TABLE IF NOT EXISTS gst_rates (
+    id VARCHAR(36) PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    code VARCHAR(50) NULL,
+    percentage DECIMAL(5,2) NOT NULL DEFAULT 0,
+    is_active TINYINT NOT NULL DEFAULT 1,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+  );
+
   CREATE TABLE IF NOT EXISTS sp_territories (
     id VARCHAR(36) PRIMARY KEY,
     sp_id VARCHAR(36) NOT NULL,
@@ -366,11 +452,28 @@ export async function ensureExtendedSchema(): Promise<void> {
     ['prod-009', 'Amlodipine'],
     ['prod-010', 'Montelukast'],
   ]
-  const PRODUCT_COLS = ['expiry_date TEXT', 'gst_pct REAL DEFAULT 12', 'batch_number TEXT']
+  const PRODUCT_COLS = ['expiry_date TEXT', 'gst_pct REAL DEFAULT 12', 'batch_number TEXT',
+    'company_id TEXT', 'composition_id TEXT', 'gst_id TEXT',
+    'hsn_code TEXT', 'packing TEXT', 'units_per_box INTEGER DEFAULT 1',
+    'retail_units INTEGER DEFAULT 1', 'min_quantity INTEGER DEFAULT 1',
+    'storage_location TEXT', 'schedule TEXT', 'scheme TEXT', 'barcode TEXT',
+  ]
   const PRODUCT_COLS_MYSQL = [
     'expiry_date DATE NULL',
     'gst_pct DECIMAL(5,2) DEFAULT 12',
     'batch_number VARCHAR(50) NULL',
+    'company_id VARCHAR(36) NULL',
+    'composition_id VARCHAR(36) NULL',
+    'gst_id VARCHAR(36) NULL',
+    'hsn_code VARCHAR(50) NULL',
+    'packing VARCHAR(100) NULL',
+    'units_per_box INT DEFAULT 1',
+    'retail_units INT DEFAULT 1',
+    'min_quantity INT DEFAULT 1',
+    'storage_location VARCHAR(255) NULL',
+    'schedule VARCHAR(50) NULL',
+    'scheme TEXT NULL',
+    'barcode VARCHAR(100) NULL',
   ]
   const ORDER_COLS = [
     'gst_amount REAL DEFAULT 0',
@@ -466,6 +569,51 @@ export async function ensureExtendedSchema(): Promise<void> {
       )
     } catch {
       /* ignore */
+    }
+  }
+
+  // Seed default companies if empty
+  const companyCount = await query<{ c: number }>('SELECT COUNT(*) as c FROM companies')
+  if (Number(companyCount[0]?.c ?? 0) === 0) {
+    const ts = new Date().toISOString().slice(0, 19).replace('T', ' ')
+    const defaultCompanies = [
+      ['company-cipla',    'Cipla'],
+      ['company-alkem',    'Alkem'],
+      ['company-emcure',   'Emcure'],
+      ['company-lupin',    'Lupin'],
+      ['company-cadila',   'Cadila'],
+      ['company-roussle',  'Roussle'],
+      ['company-micro',    'Micro'],
+      ['company-mankind',  'Mankind'],
+    ]
+    for (const [id, name] of defaultCompanies) {
+      try {
+        await run(
+          `INSERT INTO companies (id,name,is_active,created_at,updated_at) VALUES (?,?,1,?,?)`,
+          [id, name, ts, ts]
+        )
+      } catch { /* already exists */ }
+    }
+  }
+
+  // Seed default GST rates if empty
+  const gstCount = await query<{ c: number }>('SELECT COUNT(*) as c FROM gst_rates')
+  if (Number(gstCount[0]?.c ?? 0) === 0) {
+    const ts = new Date().toISOString().slice(0, 19).replace('T', ' ')
+    const defaults = [
+      ['gst-0',   'GST 0%',  'GST0',  0],
+      ['gst-5',   'GST 5%',  'GST5',  5],
+      ['gst-12',  'GST 12%', 'GST12', 12],
+      ['gst-18',  'GST 18%', 'GST18', 18],
+      ['gst-28',  'GST 28%', 'GST28', 28],
+    ]
+    for (const [id, name, code, pct] of defaults) {
+      try {
+        await run(
+          'INSERT INTO gst_rates (id,name,code,percentage,is_active,created_at,updated_at) VALUES (?,?,?,?,1,?,?)',
+          [id, name, code, pct, ts, ts]
+        )
+      } catch { /* exists */ }
     }
   }
 }

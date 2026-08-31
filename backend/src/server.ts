@@ -2,6 +2,7 @@ import 'dotenv/config'
 import express from 'express'
 import cors from 'cors'
 import path from 'path'
+import fs from 'fs'
 import { fileURLToPath } from 'url'
 import { initDatabase, getActiveDriver } from './db/index.js'
 import authRoutes from './routes/auth.js'
@@ -22,6 +23,9 @@ import inventoryRoutes from './routes/inventory.js'
 import accountingRoutes from './routes/accounting.js'
 import notificationRoutes from './routes/notifications.js'
 import spTerritoryRoutes from './routes/sp-territories.js'
+import companyRoutes from './routes/companies.js'
+import compositionRoutes from './routes/compositions.js'
+import gstRateRoutes from './routes/gst-rates.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
@@ -29,11 +33,18 @@ const app = express()
 const PORT = Number(process.env.PORT) || 3001
 
 app.use(express.json({ limit: '10mb' }))
+
+// ── CORS: allow all origins in production, restrict in development ──────────
+const isProd = process.env.NODE_ENV === 'production'
+const allowedOrigins = isProd
+  ? true // reflect request origin (allows any domain)
+  : [
+      'http://localhost:3000',
+      'https://medical-distribution-system-frontend-gfdp5hwwz.vercel.app',
+    ]
+
 app.use(cors({
-  origin: [
-    'http://localhost:3000',
-    'https://medical-distribution-system-frontend-gfdp5hwwz.vercel.app',
-  ],
+  origin: allowedOrigins,
   credentials: true,
 }))
 
@@ -60,6 +71,25 @@ app.use('/api/inventory', inventoryRoutes)
 app.use('/api/accounting', accountingRoutes)
 app.use('/api/notifications', notificationRoutes)
 app.use('/api/sp-territories', spTerritoryRoutes)
+app.use('/api/companies', companyRoutes)
+app.use('/api/compositions', compositionRoutes)
+app.use('/api/gst-rates', gstRateRoutes)
+
+// ── Serve Next.js frontend in production ────────────────────────────────────
+const frontendDist = process.env.FRONTEND_DIST || path.join(__dirname, '..', '..', 'frontend', '.next')
+if (isProd && fs.existsSync(frontendDist)) {
+  // Next.js static assets (/_next/*)
+  app.use('/_next', express.static(path.join(frontendDist, 'static')))
+  // Public assets
+  const publicDir = path.join(__dirname, '..', '..', 'frontend', 'public')
+  if (fs.existsSync(publicDir)) {
+    app.use(express.static(publicDir))
+  }
+  // Catch-all: serve Next.js HTML for client-side routing
+  app.get('*', (_req, res) => {
+    res.sendFile(path.join(frontendDist, 'server', 'pages', 'index.html'))
+  })
+}
 
 app.use((err: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
   console.error('Unhandled error:', err)
