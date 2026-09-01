@@ -65,7 +65,7 @@ export default function LoginPage() {
                 className="h-20 w-20 object-contain"
               />
             </div>
-
+  
             <h1 className="login-cinzel text-2xl font-semibold tracking-wide">
               <span className="text-black">Tirumala</span>{' '}
               <span className="text-green-600">Pharmaceutical</span>
@@ -162,4 +162,6 @@ export default function LoginPage() {
     </>
   )
 }
+
+
 

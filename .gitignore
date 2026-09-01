@@ -52,3 +52,7 @@ coverage/
 # Production build artifacts (generated — not source)
 deploy/
 deploy.zip
+hostinger-build/
+hostinger-backend.zip
+hostinger-frontend.zip
+hostinger-build.zip
